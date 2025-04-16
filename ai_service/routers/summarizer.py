@@ -4,7 +4,7 @@ from typing import Optional
 from transformers import pipeline
 
 router = APIRouter()
-summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
+summarizer = pipeline("Summarization", model="facebook/bart-large-cnn")
 
 class SummarizeRequest(BaseModel):
     text: str

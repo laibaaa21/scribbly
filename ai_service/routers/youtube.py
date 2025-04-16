@@ -16,7 +16,7 @@ class YouTubeSearchResponse(BaseModel):
     video_titles: List[str]
     video_links: List[str]
 
-@router.post("/suggest", response_model=YouTubeSearchResponse)
+@router.post("/YtSuggestion", response_model=YouTubeSearchResponse)
 async def suggest_youtube_video(request: YouTubeSearchRequest):
     try:
         youtube = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)

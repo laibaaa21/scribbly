@@ -1,27 +1,25 @@
-import logo from './logo.svg';
 import React from 'react';
 import './App.css';
-import Mindmap from './components/mindmap';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import Dashboard from './components/Dashboard';
+import AuthPage from './components/AuthPage';
+
+const AppContent = () => {
+  const { currentUser, loading } = useAuth();
+  
+  if (loading) {
+    return <div className="loading">Loading...</div>;
+  }
+  
+  return currentUser ? <Dashboard /> : <AuthPage />;
+};
 
 function App() {
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <h1>Scribbly Mindmap</h1>
-        <Mindmap />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
     </div>
   );
 }

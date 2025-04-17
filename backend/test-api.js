@@ -4,15 +4,15 @@ async function testUserRegistration() {
   try {
     console.log('Testing user registration...');
     console.log('Sending request to: http://localhost:5000/api/users');
-    
+
     const userData = {
       username: 'testuser',
       email: 'test@example.com',
       password: 'password123'
     };
-    
+
     console.log('Request body:', JSON.stringify(userData));
-    
+
     const response = await fetch('http://localhost:5000/api/users', {
       method: 'POST',
       headers: {
@@ -20,11 +20,11 @@ async function testUserRegistration() {
       },
       body: JSON.stringify(userData)
     });
-    
+
     console.log('Response status:', response.status);
     const data = await response.json();
     console.log('Response body:', data);
-    
+
     if (data.token) {
       console.log('User registered successfully!');
       return data.token;
@@ -42,21 +42,21 @@ async function testUserRegistration() {
 async function testCreateNote(token) {
   try {
     console.log('\nTesting note creation...');
-    
+
     if (!token) {
       console.log('No token available, skipping note creation test.');
       return null;
     }
-    
+
     const noteData = {
       title: 'Test Note',
       content: 'This is a test note created via API.',
       tags: ['test', 'api']
     };
-    
+
     console.log('Sending request to: http://localhost:5000/api/notes');
     console.log('Request body:', JSON.stringify(noteData));
-    
+
     const response = await fetch('http://localhost:5000/api/notes', {
       method: 'POST',
       headers: {
@@ -65,11 +65,11 @@ async function testCreateNote(token) {
       },
       body: JSON.stringify(noteData)
     });
-    
+
     console.log('Response status:', response.status);
     const data = await response.json();
     console.log('Response body:', data);
-    
+
     if (data._id) {
       console.log('Note created successfully!');
       return data._id;
@@ -87,12 +87,12 @@ async function testCreateNote(token) {
 async function testCreateMindmap(token) {
   try {
     console.log('\nTesting mindmap creation...');
-    
+
     if (!token) {
       console.log('No token available, skipping mindmap creation test.');
       return null;
     }
-    
+
     const mindmapData = {
       title: 'Test Mindmap',
       description: 'This is a test mindmap created via API.',
@@ -114,10 +114,10 @@ async function testCreateMindmap(token) {
       },
       tags: ['test', 'mindmap']
     };
-    
+
     console.log('Sending request to: http://localhost:5000/api/mindmaps');
     console.log('Request body:', JSON.stringify(mindmapData));
-    
+
     const response = await fetch('http://localhost:5000/api/mindmaps', {
       method: 'POST',
       headers: {
@@ -126,11 +126,11 @@ async function testCreateMindmap(token) {
       },
       body: JSON.stringify(mindmapData)
     });
-    
+
     console.log('Response status:', response.status);
     const data = await response.json();
     console.log('Response body:', data);
-    
+
     if (data._id) {
       console.log('Mindmap created successfully!');
       return data._id;
@@ -149,13 +149,13 @@ async function runTests() {
   try {
     // Step 1: Register a user
     const token = await testUserRegistration();
-    
+
     // Step 2: Create a note
     const noteId = await testCreateNote(token);
-    
+
     // Step 3: Create a mindmap
     const mindmapId = await testCreateMindmap(token);
-    
+
     console.log('\nTest Summary:');
     console.log('-------------');
     console.log('Authentication:', token ? 'SUCCESS' : 'FAILED');

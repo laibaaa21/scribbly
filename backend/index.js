@@ -5,6 +5,7 @@ require('dotenv').config();
 const noteRoutes = require('./routes/noteRoutes');
 const userRoutes = require('./routes/userRoutes');
 const mindmapRoutes = require('./routes/mindmapRoutes');
+const ocrRoutes = require('./routes/ocrRoutes');
 
 // Connect to MongoDB
 connectDB();
@@ -24,6 +25,7 @@ app.get('/', (req, res) => {
 app.use('/api/notes', noteRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/mindmaps', mindmapRoutes);
+app.use('/api/ocr', ocrRoutes);
 
 // Error handling middleware
 app.use((req, res, next) => {

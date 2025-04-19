@@ -9,6 +9,7 @@ import OCR from './OCR';
 import TextToSpeech from './TextToSpeech';
 import Summarizer from './Summarizer';
 import YouTube from './YouTube';
+import OcrProcessor from './OcrProcessor';
 import './Dashboard.css';
 
 const Dashboard = () => {
@@ -17,6 +18,7 @@ const Dashboard = () => {
   const [selectedMindmapId, setSelectedMindmapId] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [isDarkTheme, setIsDarkTheme] = useState(false);
+  const [activeTab, setActiveTab] = useState('mindmaps'); // 'mindmaps' or 'ocr'
 
   useEffect(() => {
     document.body.classList.toggle('dark-theme', isDarkTheme);
@@ -60,6 +62,28 @@ const Dashboard = () => {
     }
   };
 
+  const handleSelectMindmap = (id) => {
+    setSelectedMindmapId(id);
+    setShowCreateForm(false);
+  };
+  
+  const handleCreateClick = () => {
+    setSelectedMindmapId(null);
+    setShowCreateForm(true);
+  };
+  
+  const handleMindmapCreated = (id) => {
+    setSelectedMindmapId(id);
+    setShowCreateForm(false);
+  };
+  
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    if (tab === 'mindmaps') {
+      setShowCreateForm(false);
+    }
+  };
+
   return (
     <div className="dashboard-container">
       <div className="dashboard-header">
@@ -81,9 +105,30 @@ const Dashboard = () => {
         activeFeature={activeFeature}
       />
       
-      <div className="feature-content">
-        {renderFeatureContent()}
+      <div className="dashboard-tabs">
+        <button 
+          className={`tab-button ${activeTab === 'mindmaps' ? 'active' : ''}`}
+          onClick={() => handleTabChange('mindmaps')}
+        >
+          Mindmaps
+        </button>
+        <button 
+          className={`tab-button ${activeTab === 'ocr' ? 'active' : ''}`}
+          onClick={() => handleTabChange('ocr')}
+        >
+          OCR
+        </button>
       </div>
+      
+      {activeTab === 'mindmaps' ? (
+        <div className="feature-content">
+          {renderFeatureContent()}
+        </div>
+      ) : (
+        <div className="dashboard-ocr-container">
+          <OcrProcessor />
+        </div>
+      )}
     </div>
   );
 };

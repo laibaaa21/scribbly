@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
-import './Mindmap.css';
 import { useAuth } from '../contexts/AuthContext';
 import { getMindmapById, createMindmap } from '../utils/api';
 
@@ -151,15 +150,17 @@ const Mindmap = ({ mindmapId, onMindmapCreated }) => {
     }
 
     return (
-        <div className="mindmap-container">
-            <div ref={svgRef}></div>
-            {!mindmapId && (
-                <div className="mindmap-actions">
-                    <button onClick={saveMindmap} className="btn btn-save">
-                        Save Mindmap
-                    </button>
-                </div>
-            )}
+        <div className="feature-container">
+            <div className="feature-main mindmap-container">
+                <div ref={svgRef}></div>
+                {!mindmapId && (
+                    <div className="button-group">
+                        <button onClick={saveMindmap} className="primary-button">
+                            Save Mindmap
+                        </button>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

@@ -1,0 +1,150 @@
+.summarizer-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.summarizer-container h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #333;
+  text-align: center;
+}
+
+.summarizer-error {
+  background-color: #ffebee;
+  color: #c62828;
+  padding: 10px 15px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  font-size: 14px;
+}
+
+.summarizer-input-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.summarizer-textarea {
+  width: 100%;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 16px;
+  resize: vertical;
+  min-height: 150px;
+}
+
+.summarizer-textarea:focus {
+  outline: none;
+  border-color: #61dafb;
+  box-shadow: 0 0 0 2px rgba(97, 218, 251, 0.2);
+}
+
+.summarizer-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+}
+
+.compression-control {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 200px;
+}
+
+.compression-control label {
+  font-weight: 500;
+  color: #555;
+}
+
+.summarizer-range {
+  width: 100%;
+  cursor: pointer;
+}
+
+.summarizer-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.summarizer-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.summarizer-button.primary {
+  background-color: #4caf50;
+  color: white;
+  min-width: 120px;
+}
+
+.summarizer-button.primary:hover:not(:disabled) {
+  background-color: #388e3c;
+}
+
+.summarizer-button.secondary {
+  background-color: #2196f3;
+  color: white;
+}
+
+.summarizer-button.secondary:hover {
+  background-color: #1976d2;
+}
+
+.summary-result {
+  margin-top: 30px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  overflow: hidden;
+}
+
+.summary-header {
+  padding: 15px;
+  background-color: #61dafb;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.summary-header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.summary-content {
+  padding: 20px;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #333;
+  background-color: white;
+}
+
+@media (max-width: 600px) {
+  .summarizer-controls {
+    flex-direction: column;
+  }
+  
+  .summarizer-button.primary {
+    width: 100%;
+  }
+} 

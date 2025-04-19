@@ -50,7 +50,7 @@ const Dashboard = () => {
           </div>
         );
       case 'ocr':
-        return <OCR />;
+        return <OcrProcessor />;
       case 'tts':
         return <TextToSpeech />;
       case 'summarizer':
@@ -105,30 +105,9 @@ const Dashboard = () => {
         activeFeature={activeFeature}
       />
       
-      <div className="dashboard-tabs">
-        <button 
-          className={`tab-button ${activeTab === 'mindmaps' ? 'active' : ''}`}
-          onClick={() => handleTabChange('mindmaps')}
-        >
-          Mindmaps
-        </button>
-        <button 
-          className={`tab-button ${activeTab === 'ocr' ? 'active' : ''}`}
-          onClick={() => handleTabChange('ocr')}
-        >
-          OCR
-        </button>
+      <div className="feature-content">
+        {renderFeatureContent()}
       </div>
-      
-      {activeTab === 'mindmaps' ? (
-        <div className="feature-content">
-          {renderFeatureContent()}
-        </div>
-      ) : (
-        <div className="dashboard-ocr-container">
-          <OcrProcessor />
-        </div>
-      )}
     </div>
   );
 };

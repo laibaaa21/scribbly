@@ -15,7 +15,6 @@ const Notes = ({ sidebarVisible }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [activeAITool, setActiveAITool] = useState(null);
-  const [aiToolExpanded, setAiToolExpanded] = useState(false);
 
   useEffect(() => {
     const fetchNotes = async () => {
@@ -99,6 +98,14 @@ const Notes = ({ sidebarVisible }) => {
     note.content.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handleAIToolClick = (tool) => {
+    if (activeAITool === tool) {
+      setActiveAITool(null);
+    } else {
+      setActiveAITool(tool);
+    }
+  };
+
   const renderAITool = () => {
     if (!activeAITool) return null;
 
@@ -111,7 +118,7 @@ const Notes = ({ sidebarVisible }) => {
     };
 
     return (
-      <div className={`ai-tool-content ${aiToolExpanded ? 'expanded' : ''}`}>
+      <div className={`ai-tool-content ${activeAITool ? 'expanded' : ''}`}>
         <div className="ai-tool-header">
           <h3>{getToolTitle(activeAITool)}</h3>
           <button
@@ -138,15 +145,6 @@ const Notes = ({ sidebarVisible }) => {
       youtube: 'YouTube Suggestions'
     };
     return titles[tool] || '';
-  };
-
-  const handleAIToolClick = (tool) => {
-    if (activeAITool === tool) {
-      setActiveAITool(null);
-    } else {
-      setActiveAITool(tool);
-      setAiToolExpanded(true);
-    }
   };
 
   return (
@@ -252,43 +250,25 @@ const Notes = ({ sidebarVisible }) => {
         </div>
         <div className="right-panel-content">
           <div className="ai-tools-tabs">
-            <button
-              className={`ai-tool-button ${activeAITool === 'mindmap' ? 'active' : ''}`}
-              onClick={() => handleAIToolClick('mindmap')}
-            >
-              <span className="tool-icon">🗺️</span>
-              Mind Map
-            </button>
-            <button
-              className={`ai-tool-button ${activeAITool === 'ocr' ? 'active' : ''}`}
-              onClick={() => handleAIToolClick('ocr')}
-            >
-              <span className="tool-icon">📷</span>
-              OCR Scanner
-            </button>
-            <button
-              className={`ai-tool-button ${activeAITool === 'tts' ? 'active' : ''}`}
-              onClick={() => handleAIToolClick('tts')}
-            >
-              <span className="tool-icon">🔊</span>
-              Text to Speech
-            </button>
-            <button
-              className={`ai-tool-button ${activeAITool === 'summarizer' ? 'active' : ''}`}
-              onClick={() => handleAIToolClick('summarizer')}
-            >
-              <span className="tool-icon">📝</span>
-              Summarizer
-            </button>
-            <button
-              className={`ai-tool-button ${activeAITool === 'youtube' ? 'active' : ''}`}
-              onClick={() => handleAIToolClick('youtube')}
-            >
-              <span className="tool-icon">▶️</span>
-              YouTube
-            </button>
+            {[
+              { id: 'mindmap', label: 'Mind Map', icon: '🗺️' },
+              { id: 'ocr', label: 'OCR Scanner', icon: '📷' },
+              { id: 'tts', label: 'Text to Speech', icon: '🔊' },
+              { id: 'summarizer', label: 'Summarizer', icon: '📝' },
+              { id: 'youtube', label: 'YouTube', icon: '▶️' }
+            ].map(tool => (
+              <React.Fragment key={tool.id}>
+                <button
+                  className={`ai-tool-button ${activeAITool === tool.id ? 'active' : ''}`}
+                  onClick={() => handleAIToolClick(tool.id)}
+                >
+                  <span className="tool-icon">{tool.icon}</span>
+                  {tool.label}
+                </button>
+                {activeAITool === tool.id && renderAITool()}
+              </React.Fragment>
+            ))}
           </div>
-          {renderAITool()}
         </div>
       </div>
     </div>

@@ -1,10 +1,25 @@
 .tts-container {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 20px;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
   background-color: white;
   border-radius: 8px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  /* Prevent double scrollbars */
+}
+
+.tts-content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  /* Enable scrolling */
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  min-height: 0;
+  /* Important for nested flex scrolling */
 }
 
 .tts-container h2 {
@@ -35,9 +50,10 @@
   border: 1px solid #ddd;
   border-radius: 8px;
   font-family: inherit;
-  font-size: 16px;
+  font-size: 14px;
   resize: vertical;
-  min-height: 150px;
+  min-height: 100px;
+  background-color: #f8f9fa;
 }
 
 .tts-textarea:focus {
@@ -49,31 +65,32 @@
 .tts-controls {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 15px;
   background-color: #f8f9fa;
   padding: 15px;
   border-radius: 8px;
+  margin-bottom: 10px;
 }
 
 .tts-control-item {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  width: 100%;
+  gap: 6px;
 }
 
 .tts-control-item label {
   font-weight: 500;
   color: #555;
-  margin-bottom: 4px;
+  font-size: 14px;
 }
 
 .tts-select {
-  padding: 8px 12px;
+  padding: 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
   background-color: white;
   font-size: 14px;
+  width: 100%;
 }
 
 .voice-selection-container {
@@ -123,19 +140,26 @@
 
 .tts-buttons {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   justify-content: center;
-  margin-top: 10px;
+  padding: 10px;
+  background-color: white;
+  border-top: 1px solid #eee;
+  margin-top: auto;
+  overflow: auto;
+  /* Allow scrolling for the buttons if necessary */
+  flex-shrink: 0;
+  /* Prevent shrinking */
 }
 
 .tts-button {
-  padding: 10px 20px;
+  padding: 8px 16px;
   border: none;
   border-radius: 4px;
   font-weight: 500;
-  font-size: 16px;
+  font-size: 14px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
 }
 
 .tts-button:disabled {
@@ -170,14 +194,41 @@
   background-color: #c82333;
 }
 
+.tts-progress {
+  margin: 15px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tts-progress-bar {
+  flex-grow: 1;
+  height: 8px;
+  background-color: #e9ecef;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.tts-progress-fill {
+  height: 100%;
+  background-color: #61dafb;
+  transition: width 0.3s ease;
+}
+
+.tts-progress span {
+  min-width: 45px;
+  font-size: 14px;
+  color: #6c757d;
+}
+
 @media (min-width: 768px) {
   .tts-controls {
     flex-direction: row;
     flex-wrap: wrap;
   }
-  
+
   .tts-control-item {
     flex: 1;
     min-width: 200px;
   }
-} 
+}

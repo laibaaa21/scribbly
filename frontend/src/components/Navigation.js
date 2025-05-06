@@ -2,12 +2,7 @@ import React from 'react';
 
 const Navigation = ({ onFeatureSelect, activeFeature }) => {
   const features = [
-    { id: 'notes', label: 'Notes' },
-    { id: 'mindmap', label: 'Mindmap' },
-    { id: 'ocr', label: 'OCR' },
-    { id: 'tts', label: 'Text to Speech' },
-    { id: 'summarizer', label: 'Summarizer' },
-    { id: 'youtube', label: 'YouTube' }
+    { id: 'notes', label: 'Notes' }
   ];
 
   return (

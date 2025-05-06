@@ -20,8 +20,8 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
-app.include_router(summarizer.router)
-app.include_router(mindmap.router)
-app.include_router(ocr.router)
-app.include_router(tts.router)
-app.include_router(youtube.router)
+app.include_router(summarizer.router, prefix="/api")
+app.include_router(mindmap.router, prefix="/api")
+app.include_router(ocr.router, prefix="/api")
+app.include_router(tts.router, prefix="/api")
+app.include_router(youtube.router, prefix="/api")

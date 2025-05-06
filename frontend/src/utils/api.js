@@ -1,7 +1,8 @@
 const API_URL = 'http://localhost:5000/api';
+const AI_API_URL = 'http://localhost:5001/api';
 
 // Helper function for making API requests
-async function apiRequest(endpoint, method = 'GET', data = null, token = null) {
+async function apiRequest(endpoint, method = 'GET', data = null, token = null, useAIAPI = false) {
   const headers = {
     'Content-Type': 'application/json',
   };
@@ -20,7 +21,8 @@ async function apiRequest(endpoint, method = 'GET', data = null, token = null) {
   }
 
   try {
-    const response = await fetch(`${API_URL}${endpoint}`, config);
+    const baseURL = useAIAPI ? AI_API_URL : API_URL;
+    const response = await fetch(`${baseURL}${endpoint}`, config);
     const responseData = await response.json();
 
     if (!response.ok) {
@@ -50,7 +52,7 @@ async function uploadFile(endpoint, file, token = null) {
       headers,
       body: formData
     });
-    
+
     const responseData = await response.json();
 
     if (!response.ok) {
@@ -73,21 +75,21 @@ async function uploadFileWithFormData(endpoint, formData, token = null) {
 
   try {
     console.log(`Sending request to ${API_URL}${endpoint}`);
-    
+
     // Log form data contents for debugging
     for (let pair of formData.entries()) {
       console.log(`Form data: ${pair[0]}: ${pair[1]}`);
     }
-    
+
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'POST',
       headers,
       body: formData
     });
-    
+
     // Log response status
     console.log(`Response status: ${response.status}`);
-    
+
     const responseData = await response.json();
     console.log('Response data:', responseData);
 
@@ -160,12 +162,21 @@ export const deleteMindmap = (id, token) => {
 // OCR API calls
 export const processOcrImage = (imageFile, language = 'eng', token) => {
   console.log(`Processing OCR with language: ${language}`);
-  
+
   const formData = new FormData();
   formData.append('file', imageFile);
   formData.append('language', language);
-  
+
   return uploadFileWithFormData('/ocr', formData, token);
+};
+
+// Text Summarization API calls
+export const summarizeText = async (text, compressionLevel = 0.5, method = 'abstractive', token) => {
+  return apiRequest('/summarize', 'POST', {
+    text,
+    compression_ratio: compressionLevel,
+    method
+  }, token, true);
 };
 
 export default {
@@ -183,4 +194,5 @@ export default {
   updateMindmap,
   deleteMindmap,
   processOcrImage,
+  summarizeText,
 }; 

@@ -1,2 +1,15 @@
 gTTS==2.3.2
-python-dotenv==1.0.0 
+python-dotenv==1.0.0
+fastapi==0.104.1
+uvicorn==0.24.0
+numpy==1.26.4
+torch==2.2.0
+accelerate==0.24.1
+python-multipart==0.0.6
+pytesseract==0.3.10
+Pillow==10.1.0
+pygame==2.5.2
+google-api-python-client==2.108.0
+transformers==4.35.2
+nltk==3.8.1
+networkx==3.2.1 

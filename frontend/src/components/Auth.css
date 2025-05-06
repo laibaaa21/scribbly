@@ -1,84 +1,109 @@
-.auth-form-container {
-  max-width: 400px;
-  margin: 0 auto;
+.auth-page {
+  display: flex;
+  flex-direction: column; /* Stack title and container vertically */
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh; /* Full viewport height */
+  background-color: #f0f2f5; /* Light background color */
   padding: 20px;
-  background-color: #fff;
+}
+
+.auth-title {
+  font-size: 3em; /* Larger font size for the title */
+  color: #1877f2; /* A blue color, adjust as needed */
+  margin-bottom: 30px; /* Space below the title */
+  font-weight: bold;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+}
+
+.auth-container {
+  background-color: #ffffff;
+  padding: 30px 40px;
   border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 400px; /* Limit the width of the form container */
+  text-align: center; /* Center text inside the container */
+}
+
+/* Style the form container used in Login.js and Register.js */
+.auth-form-container {
+  /* Remove any specific positioning or margins if they conflict */
+  width: 100%;
 }
 
 .auth-form-container h2 {
-  text-align: center;
   margin-bottom: 20px;
   color: #333;
+  font-size: 1.8em;
 }
 
 .form-group {
   margin-bottom: 15px;
+  text-align: left; /* Align labels and inputs left */
 }
 
 .form-group label {
   display: block;
   margin-bottom: 5px;
-  font-weight: 500;
+  font-weight: bold;
   color: #555;
 }
 
 .form-group input {
   width: 100%;
-  padding: 10px;
-  border: 1px solid #ddd;
+  padding: 10px 12px;
+  border: 1px solid #ccc;
   border-radius: 4px;
-  font-size: 16px;
+  box-sizing: border-box; /* Include padding and border in width */
+  font-size: 1em;
 }
 
-.error-message {
-  background-color: #fee;
-  color: #c00;
-  padding: 10px;
-  border-radius: 4px;
-  margin-bottom: 15px;
-  font-size: 14px;
-}
-
-.btn {
-  display: inline-block;
-  padding: 10px 15px;
-  background-color: #61dafb;
-  color: #fff;
+.btn.btn-primary {
+  width: 100%;
+  padding: 12px;
+  background-color: #1877f2; /* Match title color */
   border: none;
   border-radius: 4px;
+  color: white;
+  font-size: 1.1em;
+  font-weight: bold;
   cursor: pointer;
-  font-size: 16px;
-  font-weight: 500;
-  transition: background-color 0.3s;
+  transition: background-color 0.3s ease;
 }
 
-.btn:hover {
-  background-color: #21a1c7;
-}
-
-.btn:disabled {
-  background-color: #ccc;
+.btn.btn-primary:disabled {
+  background-color: #a0c3ff;
   cursor: not-allowed;
 }
 
-.btn-primary {
-  background-color: #61dafb;
-  width: 100%;
+.btn.btn-primary:hover:not(:disabled) {
+  background-color: #166fe5; /* Darker shade on hover */
+}
+
+.error-message {
+  color: #dc3545; /* Standard error red */
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  text-align: center;
 }
 
 .auth-toggle {
-  text-align: center;
-  margin-top: 15px;
+  margin-top: 20px;
+  font-size: 0.9em;
+  color: #555;
 }
 
 .auth-toggle a {
-  color: #61dafb;
-  text-decoration: none;
+  color: #1877f2;
   cursor: pointer;
+  text-decoration: none; /* Remove underline */
+  font-weight: bold;
 }
 
 .auth-toggle a:hover {
-  text-decoration: underline;
+  text-decoration: underline; /* Add underline on hover */
 } 

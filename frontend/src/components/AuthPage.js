@@ -12,21 +12,24 @@ const AuthPage = ({ onLoginSuccess }) => {
   
   return (
     <div className="auth-page">
-      {isLogin ? (
-        <>
-          <Login onSuccess={onLoginSuccess} />
-          <div className="auth-toggle">
-            Don't have an account? <a onClick={toggleAuthMode}>Register</a>
-          </div>
-        </>
-      ) : (
-        <>
-          <Register onSuccess={onLoginSuccess} />
-          <div className="auth-toggle">
-            Already have an account? <a onClick={toggleAuthMode}>Login</a>
-          </div>
-        </>
-      )}
+      <h1 className="auth-title">Scribbly</h1>
+      <div className="auth-container">
+        {isLogin ? (
+          <>
+            <Login onSuccess={onLoginSuccess} />
+            <div className="auth-toggle">
+              Don't have an account? <a onClick={toggleAuthMode}>Register</a>
+            </div>
+          </>
+        ) : (
+          <>
+            <Register onSuccess={onLoginSuccess} />
+            <div className="auth-toggle">
+              Already have an account? <a onClick={toggleAuthMode}>Login</a>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 };

@@ -56,8 +56,11 @@ const TextToSpeech = ({ onClose }) => {
       }
     }, 10000);
 
+    // Cleanup function
     return () => {
-      window.speechSynthesis.cancel();
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
       clearInterval(intervalId);
     };
   }, [isSpeaking, isPaused]);
@@ -74,35 +77,39 @@ const TextToSpeech = ({ onClose }) => {
     }
 
     try {
-      // Stop any ongoing speech
+      // Stop any ongoing speech and reset state
       handleStop();
+      setError('');
 
-      // Break text into smaller chunks if very long
-      const maxChunkLength = 200;
-      textChunksRef.current = [];
-      currentChunkRef.current = 0;
+      // Add a small delay before starting new speech
+      setTimeout(() => {
+        // Break text into smaller chunks if very long
+        const maxChunkLength = 200;
+        textChunksRef.current = [];
+        currentChunkRef.current = 0;
 
-      if (text.length > maxChunkLength) {
-        // Break text at sentence boundaries
-        const sentences = text.match(/[^.!?]+[.!?]+/g) || [];
-        let currentChunk = "";
+        if (text.length > maxChunkLength) {
+          // Break text at sentence boundaries
+          const sentences = text.match(/[^.!?]+[.!?]+/g) || [];
+          let currentChunk = "";
 
-        sentences.forEach(sentence => {
-          if (currentChunk.length + sentence.length < maxChunkLength) {
-            currentChunk += sentence;
-          } else {
-            if (currentChunk) textChunksRef.current.push(currentChunk.trim());
-            currentChunk = sentence;
-          }
-        });
+          sentences.forEach(sentence => {
+            if (currentChunk.length + sentence.length < maxChunkLength) {
+              currentChunk += sentence;
+            } else {
+              if (currentChunk) textChunksRef.current.push(currentChunk.trim());
+              currentChunk = sentence;
+            }
+          });
 
-        if (currentChunk) textChunksRef.current.push(currentChunk.trim());
-      } else {
-        textChunksRef.current.push(text);
-      }
+          if (currentChunk) textChunksRef.current.push(currentChunk.trim());
+        } else {
+          textChunksRef.current.push(text);
+        }
 
-      // Start with the first chunk
-      speakCurrentChunk();
+        // Start with the first chunk
+        speakCurrentChunk();
+      }, 100); // Small delay to ensure previous speech is fully cancelled
     } catch (err) {
       console.error('Speech synthesis error:', err);
       setError('Failed to start speech. Please try again.');
@@ -113,84 +120,118 @@ const TextToSpeech = ({ onClose }) => {
     const currentChunk = textChunksRef.current[currentChunkRef.current];
     if (!currentChunk) return;
 
-    const utterance = new SpeechSynthesisUtterance(currentChunk);
-    utterance.rate = rate;
-    utterance.pitch = pitch;
+    try {
+      const utterance = new SpeechSynthesisUtterance(currentChunk);
+      utterance.rate = rate;
+      utterance.pitch = pitch;
 
-    // Set selected voice
-    if (voice) {
-      const selectedVoice = voices.find(v => v.name === voice);
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
+      // Set selected voice
+      if (voice) {
+        const selectedVoice = voices.find(v => v.name === voice);
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+        }
       }
-    }
 
-    // Handle events
-    utterance.onstart = () => {
-      setIsSpeaking(true);
-      setProgress(0);
-    };
+      // Handle events
+      utterance.onstart = () => {
+        setIsSpeaking(true);
+        setProgress(0);
+        setError(''); // Clear any previous errors
+      };
 
-    utterance.onpause = () => {
-      setIsPaused(true);
-    };
+      utterance.onpause = () => {
+        setIsPaused(true);
+      };
 
-    utterance.onresume = () => {
-      setIsPaused(false);
-    };
-
-    utterance.onend = () => {
-      // Move to next chunk if available
-      if (currentChunkRef.current < textChunksRef.current.length - 1) {
-        currentChunkRef.current++;
-        speakCurrentChunk();
-      } else {
-        setIsSpeaking(false);
+      utterance.onresume = () => {
         setIsPaused(false);
-        setProgress(100);
-        currentChunkRef.current = 0;
-      }
-    };
+      };
 
-    utterance.onerror = (event) => {
-      console.error('Speech synthesis error:', event);
-      setError('Error occurred while speaking. Please try again.');
+      utterance.onend = () => {
+        // Move to next chunk if available
+        if (currentChunkRef.current < textChunksRef.current.length - 1) {
+          currentChunkRef.current++;
+          // Add small delay between chunks
+          setTimeout(() => speakCurrentChunk(), 50);
+        } else {
+          setIsSpeaking(false);
+          setIsPaused(false);
+          setProgress(100);
+          currentChunkRef.current = 0;
+        }
+      };
+
+      utterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event);
+
+        // Handle specific error types
+        if (event.error === 'interrupted') {
+          // If interrupted, try to resume after a short delay
+          setTimeout(() => {
+            if (currentUtteranceRef.current === utterance) {
+              window.speechSynthesis.speak(utterance);
+            }
+          }, 100);
+        } else {
+          setError('Error occurred while speaking. Please try again.');
+          setIsSpeaking(false);
+          setIsPaused(false);
+          currentChunkRef.current = 0;
+        }
+      };
+
+      // Update progress
+      utterance.onboundary = (event) => {
+        if (event.name === 'word') {
+          const totalChunks = textChunksRef.current.length;
+          const chunkProgress = (currentChunkRef.current / totalChunks) * 100;
+          const wordProgress = (event.charIndex / currentChunk.length) * (100 / totalChunks);
+          setProgress(Math.min(Math.round(chunkProgress + wordProgress), 100));
+        }
+      };
+
+      // Store the current utterance and speak
+      currentUtteranceRef.current = utterance;
+      window.speechSynthesis.speak(utterance);
+    } catch (err) {
+      console.error('Error in speakCurrentChunk:', err);
+      setError('Failed to process speech. Please try again.');
       setIsSpeaking(false);
       setIsPaused(false);
-    };
-
-    // Update progress
-    utterance.onboundary = (event) => {
-      if (event.name === 'word') {
-        const totalChunks = textChunksRef.current.length;
-        const chunkProgress = (currentChunkRef.current / totalChunks) * 100;
-        const wordProgress = (event.charIndex / currentChunk.length) * (100 / totalChunks);
-        setProgress(Math.min(Math.round(chunkProgress + wordProgress), 100));
-      }
-    };
-
-    window.speechSynthesis.speak(utterance);
-    currentUtteranceRef.current = utterance;
+    }
   };
 
   const handlePause = () => {
     if (!window.speechSynthesis) return;
 
-    if (isPaused) {
-      window.speechSynthesis.resume();
-    } else {
-      window.speechSynthesis.pause();
+    try {
+      if (isPaused) {
+        window.speechSynthesis.resume();
+      } else {
+        window.speechSynthesis.pause();
+      }
+    } catch (err) {
+      console.error('Error in handlePause:', err);
+      setError('Failed to pause/resume speech. Please try again.');
     }
   };
 
   const handleStop = () => {
     if (!window.speechSynthesis) return;
 
-    window.speechSynthesis.cancel();
-    setIsSpeaking(false);
-    setIsPaused(false);
-    setProgress(0);
-    currentUtteranceRef.current = null;
+    try {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      setIsPaused(false);
+      setProgress(0);
+      setError('');
+      currentUtteranceRef.current = null;
+      currentChunkRef.current = 0;
+    } catch (err) {
+      console.error('Error in handleStop:', err);
+      setError('Failed to stop speech. Please refresh the page.');
+    }
   };
 
   return (

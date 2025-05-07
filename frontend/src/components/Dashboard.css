@@ -1351,3 +1351,135 @@ textarea {
 .audio-player audio {
   width: 100%;
 }
+
+/* Search and Sort */
+.search-and-sort {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.sort-select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* Note Item Styles */
+.note-item {
+  position: relative;
+}
+
+.note-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.pin-note-btn {
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+  color: #666;
+}
+
+.note-item:hover .pin-note-btn {
+  opacity: 1;
+}
+
+.pin-icon {
+  margin-right: 6px;
+  font-size: 14px;
+}
+
+.edit-title-input {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--accent-primary);
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 600;
+  background: white;
+  margin: -4px 0;
+}
+
+/* Context Menu */
+.context-menu {
+  position: fixed;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  min-width: 160px;
+}
+
+.context-menu button {
+  display: block;
+  width: 100%;
+  padding: 8px 16px;
+  text-align: left;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.context-menu button:hover {
+  background: var(--bg);
+}
+
+.context-menu button+button {
+  border-top: 1px solid var(--border);
+}
+
+/* Note Preview Improvements */
+.note-preview {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.4;
+  margin: 4px 0;
+}
+
+.note-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+/* Animations */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.context-menu {
+  animation: slideIn 0.2s ease-out;
+}

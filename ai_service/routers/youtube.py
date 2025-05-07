@@ -3,12 +3,18 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 router = APIRouter()
 
-YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")  # Or paste your API key as a string
-print("YT API KEY:", YOUTUBE_API_KEY)  # Optional for debugging
+# Get API key from environment
+YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
+
 class YouTubeSearchRequest(BaseModel):
     query: str
     max_results: int = 5
@@ -16,10 +22,10 @@ class YouTubeSearchRequest(BaseModel):
 class YouTubeSearchResponse(BaseModel):
     video_titles: List[str]
     video_links: List[str]
+    channel_names: List[str]
 
 @router.options("/YtSuggestion")
 async def options_youtube_suggestion():
-    # Handle OPTIONS requests for CORS preflight
     return JSONResponse(
         content={"message": "OK"},
         headers={
@@ -82,50 +88,57 @@ MOCK_VIDEO_DATABASE = {
 async def suggest_youtube_video(request: YouTubeSearchRequest):
     try:
         if not YOUTUBE_API_KEY:
-            # Return mock data if no API key is available
-            # Try to find matching videos from our pre-defined database
-            search_term = request.query.lower()
-            
-            # Find best matching category
-            matching_category = "default"
-            for category in MOCK_VIDEO_DATABASE:
-                if category in search_term:
-                    matching_category = category
-                    break
-            
-            # Get videos from the matching category
-            mock_videos = MOCK_VIDEO_DATABASE.get(matching_category, MOCK_VIDEO_DATABASE["default"])
-            
-            # Prepend the search query to make it look more relevant
-            video_titles = [f"{request.query} - {title}" for title, _ in mock_videos]
-            video_links = [f"https://www.youtube.com/watch?v={video_id}" for _, video_id in mock_videos]
-            
-            return JSONResponse(
-                content={
-                    "video_titles": video_titles,
-                    "video_links": video_links
-                },
-                headers={
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Methods": "POST, OPTIONS",
-                    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-                }
+            raise HTTPException(
+                status_code=500,
+                detail="YouTube API key not found. Please check your environment configuration."
             )
-            
+
+        # Initialize the YouTube API client
         youtube = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
+        
+        # Make the search request
         search_response = youtube.search().list(
             q=request.query,
             part="snippet",
             type="video",
-            maxResults=request.max_results
+            maxResults=min(request.max_results, 10),  # Cap at 10 results
+            relevanceLanguage="en",  # Prefer English results
+            safeSearch="strict"  # Use strict safe search
         ).execute()
 
         video_titles = []
         video_links = []
-        for item in search_response.get("items", []):
-            video_titles.append(item["snippet"]["title"])
-            video_links.append(f"https://www.youtube.com/watch?v={item['id']['videoId']}")
+        channel_names = []
 
-        return YouTubeSearchResponse(video_titles=video_titles, video_links=video_links)
+        # Process search results
+        for item in search_response.get("items", []):
+            if "id" in item and "videoId" in item["id"]:
+                video_titles.append(item["snippet"]["title"])
+                video_links.append(f"https://www.youtube.com/watch?v={item['id']['videoId']}")
+                channel_names.append(item["snippet"]["channelTitle"])
+
+        if not video_titles:
+            raise HTTPException(
+                status_code=404,
+                detail="No videos found for your search query."
+            )
+
+        return YouTubeSearchResponse(
+            video_titles=video_titles,
+            video_links=video_links,
+            channel_names=channel_names
+        )
+
+    except HttpError as e:
+        # Handle YouTube API specific errors
+        error_message = e.error_details[0]["message"] if e.error_details else str(e)
+        raise HTTPException(
+            status_code=e.resp.status,
+            detail=f"YouTube API error: {error_message}"
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Handle other errors
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred: {str(e)}"
+        )

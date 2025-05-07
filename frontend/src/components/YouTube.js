@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import './YouTube.css';
 
 const YouTube = () => {
   const [keywords, setKeywords] = useState('');
@@ -16,7 +17,7 @@ const YouTube = () => {
     },
     {
       title: "How To Speak by Patrick Winston",
-      url: "https://www.youtube.com/watch?v=Unzc731iCUY", 
+      url: "https://www.youtube.com/watch?v=Unzc731iCUY",
       thumbnail: "https://i.ytimg.com/vi/Unzc731iCUY/hqdefault.jpg",
       channelName: "MIT OpenCourseWare"
     },
@@ -46,32 +47,17 @@ const YouTube = () => {
       setError('Please enter keywords to search');
       return;
     }
-    
+
     setIsLoading(true);
     setError('');
-    
+
     try {
       // First try with direct API call
       let response;
-      
+
       try {
         // Try the FastAPI backend running at port 8000
-        response = await fetch('http://localhost:8000/YtSuggestion', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify({
-            query: keywords,
-            max_results: 5 // Request 5 videos
-          })
-        });
-      } catch (connectionError) {
-        console.error('Direct API connection failed:', connectionError);
-        
-        // Try with /api proxy if direct connection fails
-        response = await fetch('/api/youtube/suggest', {
+        response = await fetch('http://localhost:8000/api/YtSuggestion', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -82,39 +68,33 @@ const YouTube = () => {
             max_results: 5
           })
         });
-      }
-      
-      if (!response.ok) {
-        throw new Error(`API request failed with status ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      // Check if we got valid results
-      if (data.video_titles && data.video_links && 
-          data.video_titles.length > 0 && data.video_links.length > 0) {
-        
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || `API request failed with status ${response.status}`);
+        }
+
+        const data = await response.json();
+
         // Transform the response data into our expected format
-        const videoResults = data.video_titles.map((title, index) => {
-          const videoId = extractVideoId(data.video_links[index]);
-          return {
-            title: title,
-            url: data.video_links[index],
-            thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-            channelName: "YouTube" // API doesn't return channel name
-          };
-        });
-        
+        const videoResults = data.video_titles.map((title, index) => ({
+          title: title,
+          url: data.video_links[index],
+          channelName: data.channel_names[index],
+          thumbnail: `https://i.ytimg.com/vi/${data.video_links[index].split('v=')[1]}/hqdefault.jpg`
+        }));
+
         setResults(videoResults);
-      } else {
-        // If no results or empty results, use fallbacks
-        console.log('No videos found in API response, using fallbacks.');
-        setError('No videos found for your search. Showing recommended selections instead.');
-        setResults(fallbackVideos);
+      } catch (err) {
+        console.error('Error fetching videos:', err);
+        setError(err.message || 'Failed to fetch videos. Please try again.');
+        setResults([]);
+      } finally {
+        setIsLoading(false);
       }
     } catch (err) {
       console.error('Error fetching videos:', err);
-      
+
       // If we're in development mode, use mock data for testing
       if (process.env.NODE_ENV === 'development') {
         const mockResults = generateMockResults(keywords);
@@ -124,8 +104,6 @@ const YouTube = () => {
         setError('Failed to fetch videos from YouTube. Using our recommended selections instead.');
         setResults(fallbackVideos);
       }
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -164,9 +142,9 @@ const YouTube = () => {
   return (
     <div className="youtube-container">
       <h2>YouTube Video Recommender</h2>
-      
+
       {error && <div className="youtube-error">{error}</div>}
-      
+
       <form onSubmit={handleSubmit} className="youtube-search-form">
         <div className="search-input-container">
           <input
@@ -176,7 +154,7 @@ const YouTube = () => {
             placeholder="Enter keywords (e.g., 'JavaScript tutorials', 'machine learning basics')"
             className="youtube-search-input"
           />
-          <button 
+          <button
             type="submit"
             disabled={isLoading}
             className="youtube-search-button"
@@ -185,7 +163,7 @@ const YouTube = () => {
           </button>
         </div>
       </form>
-      
+
       {results.length > 0 && (
         <div className="youtube-results">
           <h3>Top Videos for "{keywords || 'Your Search'}"</h3>
@@ -204,9 +182,9 @@ const YouTube = () => {
                     </a>
                   </h4>
                   <p className="youtube-channel">{video.channelName}</p>
-                  <a 
-                    href={video.url} 
-                    target="_blank" 
+                  <a
+                    href={video.url}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="watch-button"
                   >
@@ -221,182 +199,6 @@ const YouTube = () => {
           </div>
         </div>
       )}
-      
-      <style jsx>{`
-        .youtube-container {
-          max-width: 800px;
-          margin: 0 auto;
-          padding: 20px;
-          background-color: white;
-          border-radius: 8px;
-          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
-        
-        .youtube-container h2 {
-          margin-top: 0;
-          margin-bottom: 20px;
-          color: #333;
-          text-align: center;
-        }
-        
-        .youtube-error {
-          background-color: #ffebee;
-          color: #c62828;
-          padding: 10px 15px;
-          border-radius: 4px;
-          margin-bottom: 15px;
-          font-size: 14px;
-        }
-        
-        .youtube-search-form {
-          margin-bottom: 20px;
-        }
-        
-        .search-input-container {
-          display: flex;
-          gap: 10px;
-        }
-        
-        .youtube-search-input {
-          flex: 1;
-          padding: 12px 15px;
-          border: 1px solid #ddd;
-          border-radius: 30px;
-          font-size: 16px;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-        
-        .youtube-search-input:focus {
-          outline: none;
-          border-color: #ff0000;
-          box-shadow: 0 0 0 2px rgba(255, 0, 0, 0.1);
-        }
-        
-        .youtube-search-button {
-          padding: 0 20px;
-          background-color: #ff0000;
-          color: white;
-          border: none;
-          border-radius: 30px;
-          font-weight: bold;
-          cursor: pointer;
-          transition: background-color 0.2s;
-        }
-        
-        .youtube-search-button:hover:not(:disabled) {
-          background-color: #cc0000;
-        }
-        
-        .youtube-search-button:disabled {
-          background-color: #ffcccc;
-          cursor: not-allowed;
-        }
-        
-        .youtube-results h3 {
-          margin-bottom: 15px;
-          padding-bottom: 10px;
-          border-bottom: 1px solid #eee;
-        }
-        
-        .youtube-results-list {
-          display: flex;
-          flex-direction: column;
-          gap: 15px;
-        }
-        
-        .youtube-result-item {
-          display: flex;
-          gap: 15px;
-          padding: 15px;
-          border-radius: 8px;
-          transition: background-color 0.2s;
-          border: 1px solid #eee;
-        }
-        
-        .youtube-result-item:hover {
-          background-color: #f9f9f9;
-        }
-        
-        .youtube-thumbnail {
-          flex-shrink: 0;
-        }
-        
-        .youtube-thumbnail img {
-          width: 160px;
-          height: 90px;
-          border-radius: 4px;
-          object-fit: cover;
-          display: block;
-        }
-        
-        .youtube-video-info {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-        }
-        
-        .youtube-video-info h4 {
-          margin: 0 0 8px 0;
-          font-size: 16px;
-          line-height: 1.4;
-        }
-        
-        .youtube-video-info a {
-          color: #0F0F0F;
-          text-decoration: none;
-        }
-        
-        .youtube-video-info a:hover {
-          text-decoration: underline;
-        }
-        
-        .youtube-channel {
-          margin: 0 0 10px 0;
-          color: #606060;
-          font-size: 14px;
-        }
-        
-        .watch-button {
-          display: inline-block;
-          margin-top: auto;
-          background-color: #ff0000;
-          color: white !important;
-          padding: 8px 12px;
-          border-radius: 4px;
-          font-size: 14px;
-          font-weight: bold;
-          text-align: center;
-          text-decoration: none !important;
-          align-self: flex-start;
-          transition: background-color 0.2s;
-        }
-        
-        .watch-button:hover {
-          background-color: #cc0000;
-        }
-        
-        .video-disclaimer {
-          margin-top: 20px;
-          padding: 10px;
-          background-color: #f8f9fa;
-          border-radius: 4px;
-          font-size: 12px;
-          color: #666;
-          text-align: center;
-        }
-        
-        @media (max-width: 600px) {
-          .youtube-result-item {
-            flex-direction: column;
-          }
-          
-          .youtube-thumbnail img {
-            width: 100%;
-            height: auto;
-            max-height: 180px;
-          }
-        }
-      `}</style>
     </div>
   );
 };

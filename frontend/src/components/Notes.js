@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { createNote, updateNote, getNotes } from '../utils/api';
+import { createNote, updateNote, getNotes, deleteNote } from '../utils/api';
 import TextToSpeech from './TextToSpeech';
 import Summarizer from './Summarizer';
 import OCR from './OCR';
@@ -15,6 +15,11 @@ const Notes = ({ sidebarVisible }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [activeAITool, setActiveAITool] = useState(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState({ show: false, noteId: null });
+  const [editingTitleId, setEditingTitleId] = useState(null);
+  const [sortOption, setSortOption] = useState('lastEdited');
+  const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0, noteId: null });
+  const titleInputRef = useRef(null);
 
   useEffect(() => {
     const fetchNotes = async () => {
@@ -93,9 +98,151 @@ const Notes = ({ sidebarVisible }) => {
     }
   };
 
-  const filteredNotes = notes.filter(note =>
-    note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    note.content.toLowerCase().includes(searchTerm.toLowerCase())
+  const handleDeleteClick = (e, noteId) => {
+    e.stopPropagation(); // Prevent note selection when clicking delete
+    setDeleteConfirmation({ show: true, noteId });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirmation.noteId || !token) return;
+
+    try {
+      setLoading(true);
+      setError('');
+
+      await deleteNote(deleteConfirmation.noteId, token);
+
+      // Remove note from state
+      setNotes(prevNotes => prevNotes.filter(note => note._id !== deleteConfirmation.noteId));
+
+      // Clear current note if it was deleted
+      if (currentNote._id === deleteConfirmation.noteId) {
+        setCurrentNote({ _id: null, content: '', title: '' });
+      }
+
+      // Hide confirmation popup
+      setDeleteConfirmation({ show: false, noteId: null });
+    } catch (error) {
+      console.error('Error deleting note:', error);
+      setError(error.message || 'Failed to delete note');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cancelDelete = () => {
+    setDeleteConfirmation({ show: false, noteId: null });
+  };
+
+  const handleTitleDoubleClick = (noteId, currentTitle) => {
+    setEditingTitleId(noteId);
+    setTimeout(() => {
+      if (titleInputRef.current) {
+        titleInputRef.current.focus();
+        titleInputRef.current.select();
+      }
+    }, 0);
+  };
+
+  const handleTitleKeyDown = async (e, noteId, newTitle) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      await handleTitleSave(noteId, newTitle);
+    } else if (e.key === 'Escape') {
+      setEditingTitleId(null);
+    }
+  };
+
+  const handleTitleSave = async (noteId, newTitle) => {
+    try {
+      setLoading(true);
+      const updatedNote = await updateNote(noteId, { title: newTitle }, token);
+      setNotes(prevNotes => prevNotes.map(note =>
+        note._id === noteId ? { ...note, title: newTitle } : note
+      ));
+      if (currentNote._id === noteId) {
+        setCurrentNote(prev => ({ ...prev, title: newTitle }));
+      }
+    } catch (error) {
+      setError('Failed to update note title');
+    } finally {
+      setLoading(false);
+      setEditingTitleId(null);
+    }
+  };
+
+  const togglePinNote = async (noteId) => {
+    const noteToUpdate = notes.find(n => n._id === noteId);
+    if (!noteToUpdate) return;
+
+    try {
+      setLoading(true);
+      const updatedNote = await updateNote(noteId, {
+        isPinned: !noteToUpdate.isPinned
+      }, token);
+
+      setNotes(prevNotes => prevNotes.map(note =>
+        note._id === noteId ? { ...note, isPinned: !note.isPinned } : note
+      ));
+    } catch (error) {
+      setError('Failed to pin/unpin note');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleContextMenu = (e, noteId) => {
+    e.preventDefault();
+    setContextMenu({
+      show: true,
+      x: e.pageX,
+      y: e.pageY,
+      noteId
+    });
+  };
+
+  const closeContextMenu = () => {
+    setContextMenu({ show: false, x: 0, y: 0, noteId: null });
+  };
+
+  const duplicateNote = async (noteId) => {
+    const noteToDuplicate = notes.find(n => n._id === noteId);
+    if (!noteToDuplicate) return;
+
+    try {
+      setLoading(true);
+      const newNote = await createNote({
+        title: `${noteToDuplicate.title} (Copy)`,
+        content: noteToDuplicate.content
+      }, token);
+      setNotes(prevNotes => [newNote, ...prevNotes]);
+    } catch (error) {
+      setError('Failed to duplicate note');
+    } finally {
+      setLoading(false);
+      closeContextMenu();
+    }
+  };
+
+  const sortNotes = (notesToSort) => {
+    const pinnedNotes = notesToSort.filter(note => note.isPinned);
+    const unpinnedNotes = notesToSort.filter(note => !note.isPinned);
+
+    const sortFunctions = {
+      lastEdited: (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt),
+      created: (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+      alphabetical: (a, b) => a.title.localeCompare(b.title)
+    };
+
+    const sortFn = sortFunctions[sortOption] || sortFunctions.lastEdited;
+    return [...pinnedNotes.sort(sortFn), ...unpinnedNotes.sort(sortFn)];
+  };
+
+  const filteredNotes = sortNotes(
+    notes.filter(note =>
+      note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      note.content.toLowerCase().includes(searchTerm.toLowerCase())
+    )
   );
 
   const handleAIToolClick = (tool) => {
@@ -147,6 +294,13 @@ const Notes = ({ sidebarVisible }) => {
     return titles[tool] || '';
   };
 
+  useEffect(() => {
+    // Close context menu when clicking outside
+    const handleClickOutside = () => closeContextMenu();
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
   return (
     <div className="three-panel-layout">
       {/* Left Sidebar */}
@@ -166,7 +320,7 @@ const Notes = ({ sidebarVisible }) => {
             </div>
           )}
 
-          <div className="search-box">
+          <div className="search-and-sort">
             <input
               type="text"
               placeholder="Search notes..."
@@ -174,6 +328,15 @@ const Notes = ({ sidebarVisible }) => {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="search-input"
             />
+            <select
+              value={sortOption}
+              onChange={(e) => setSortOption(e.target.value)}
+              className="sort-select"
+            >
+              <option value="lastEdited">Last edited</option>
+              <option value="created">Recently created</option>
+              <option value="alphabetical">Alphabetical</option>
+            </select>
           </div>
 
           <div className="notes-list">
@@ -182,13 +345,49 @@ const Notes = ({ sidebarVisible }) => {
                 key={note._id}
                 className={`note-item ${currentNote._id === note._id ? 'active' : ''}`}
                 onClick={() => setCurrentNote(note)}
+                onContextMenu={(e) => handleContextMenu(e, note._id)}
               >
-                <h3>{note.title || 'Untitled Note'}</h3>
-                <p className="note-preview">
-                  {note.content.substring(0, 100)}...
-                </p>
-                <div className="note-meta">
-                  {new Date(note.createdAt).toLocaleDateString()}
+                <div className="note-item-content">
+                  {editingTitleId === note._id ? (
+                    <input
+                      ref={titleInputRef}
+                      type="text"
+                      defaultValue={note.title}
+                      className="edit-title-input"
+                      onBlur={(e) => handleTitleSave(note._id, e.target.value)}
+                      onKeyDown={(e) => handleTitleKeyDown(e, note._id, e.target.value)}
+                    />
+                  ) : (
+                    <h3 onDoubleClick={() => handleTitleDoubleClick(note._id, note.title)}>
+                      {note.isPinned && <span className="pin-icon">📌</span>}
+                      {note.title || 'Untitled Note'}
+                    </h3>
+                  )}
+                  <p className="note-preview">
+                    {note.content.substring(0, 100)}...
+                  </p>
+                  <div className="note-meta">
+                    {new Date(note.updatedAt || note.createdAt).toLocaleDateString()}
+                  </div>
+                </div>
+                <div className="note-actions">
+                  <button
+                    className="pin-note-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      togglePinNote(note._id);
+                    }}
+                    aria-label={note.isPinned ? "Unpin note" : "Pin note"}
+                  >
+                    {note.isPinned ? '📌' : '📍'}
+                  </button>
+                  <button
+                    className="delete-note-btn"
+                    onClick={(e) => handleDeleteClick(e, note._id)}
+                    aria-label="Delete note"
+                  >
+                    🗑️
+                  </button>
                 </div>
               </div>
             ))}
@@ -200,6 +399,54 @@ const Notes = ({ sidebarVisible }) => {
           </div>
         </div>
       </div>
+
+      {/* Context Menu */}
+      {contextMenu.show && (
+        <div
+          className="context-menu"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+        >
+          <button onClick={() => {
+            setCurrentNote(notes.find(n => n._id === contextMenu.noteId));
+            closeContextMenu();
+          }}>View</button>
+          <button onClick={() => {
+            handleTitleDoubleClick(contextMenu.noteId);
+            closeContextMenu();
+          }}>Rename</button>
+          <button onClick={() => duplicateNote(contextMenu.noteId)}>Duplicate</button>
+          <button onClick={() => {
+            handleDeleteClick(new Event('click'), contextMenu.noteId);
+            closeContextMenu();
+          }}>Delete</button>
+        </div>
+      )}
+
+      {/* Delete Confirmation Popup */}
+      {deleteConfirmation.show && (
+        <div className="delete-confirmation-overlay">
+          <div className="delete-confirmation-popup">
+            <h3>Delete Note</h3>
+            <p>Are you sure you want to delete this note? This action cannot be undone.</p>
+            <div className="delete-confirmation-buttons">
+              <button
+                className="cancel-button"
+                onClick={cancelDelete}
+                disabled={loading}
+              >
+                Cancel
+              </button>
+              <button
+                className="delete-button"
+                onClick={confirmDelete}
+                disabled={loading}
+              >
+                {loading ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="main-content">

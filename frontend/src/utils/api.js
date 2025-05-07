@@ -130,8 +130,26 @@ export const updateNote = (id, noteData, token) => {
   return apiRequest(`/notes/${id}`, 'PUT', noteData, token);
 };
 
-export const deleteNote = (id, token) => {
-  return apiRequest(`/notes/${id}`, 'DELETE', null, token);
+export const deleteNote = async (noteId, token) => {
+  try {
+    const response = await fetch(`${API_URL}/notes/${noteId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to delete note');
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error deleting note:', error);
+    throw error;
+  }
 };
 
 export const searchNotes = (searchTerm, token) => {

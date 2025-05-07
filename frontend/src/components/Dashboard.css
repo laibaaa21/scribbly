@@ -1,3 +1,66 @@
+/* Theme Variables */
+:root {
+  /* Light Theme (default) */
+  --bg: #f8f9fa;
+  --surface: #ffffff;
+  --surface-secondary: #f7fafc;
+  --text: #2d3748;
+  --text-secondary: #4a5568;
+  --border: #e2e8f0;
+  --accent-primary: #3182ce;
+  --accent-secondary: #2c5282;
+  --input-bg: #ffffff;
+  --shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --hover-bg: #f7fafc;
+  --error-bg: #fff5f5;
+  --error-text: #c53030;
+  --success-bg: #f0fff4;
+  --success-text: #2f855a;
+  --note-bg: #ffffff;
+  --note-hover-bg: #f7fafc;
+  --note-active-bg: #ebf8ff;
+  --note-text: #2d3748;
+  --note-text-secondary: #4a5568;
+  --note-active-text: #2d3748;
+  --note-active-text-secondary: #4a5568;
+  --item-bg: #ffffff;
+  --item-hover-bg: #f7fafc;
+  --item-active-bg: #ebf8ff;
+  --tool-bg: #ffffff;
+  --tool-hover-bg: #f7fafc;
+}
+
+/* Dark Theme */
+.dark-theme {
+  --bg: #1a202c;
+  --surface: #2d3748;
+  --surface-secondary: #2d3748;
+  --text: #f7fafc;
+  --text-secondary: #cbd5e0;
+  --border: #4a5568;
+  --accent-primary: #63b3ed;
+  --accent-secondary: #90cdf4;
+  --input-bg: #2d3748;
+  --shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+  --hover-bg: #374151;
+  --error-bg: #742a2a;
+  --error-text: #feb2b2;
+  --success-bg: #22543d;
+  --success-text: #9ae6b4;
+  --note-bg: #2d3748;
+  --note-hover-bg: #374151;
+  --note-active-bg: #2c5282;
+  --note-text: #f7fafc;
+  --note-text-secondary: #cbd5e0;
+  --note-active-text: #ffffff;
+  --note-active-text-secondary: #e2e8f0;
+  --item-bg: #2d3748;
+  --item-hover-bg: #374151;
+  --item-active-bg: #2c5282;
+  --tool-bg: #2d3748;
+  --tool-hover-bg: #374151;
+}
+
 /* Base Layout */
 .dashboard-container {
   min-height: 100vh;
@@ -6,6 +69,7 @@
   background-color: var(--bg);
   margin: 0 auto;
   padding: 20px;
+  color: var(--text);
 }
 
 /* Three Panel Layout */
@@ -40,6 +104,7 @@
   height: 100%;
   overflow-y: auto;
   padding: 1.25rem;
+  background: var(--surface);
 }
 
 /* Sidebar Toggle Button */
@@ -116,7 +181,7 @@
 
 .ai-tool-button {
   padding: 1rem;
-  background: var(--bg);
+  background: var(--tool-bg);
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
@@ -138,7 +203,7 @@
 }
 
 .ai-tool-button:hover {
-  background: var(--input-bg);
+  background: var(--tool-hover-bg);
   border-color: var(--accent-primary);
   transform: translateY(-1px);
 }
@@ -164,7 +229,6 @@
 
 .ai-tool-content.expanded {
   max-height: calc(100vh - 250px);
-  /* Adjust based on your header/footer heights */
   opacity: 1;
   margin-bottom: 1rem;
 }
@@ -172,12 +236,10 @@
 .ai-tool-header {
   padding: 1rem;
   border-bottom: 1px solid var(--border);
+  background: var(--surface);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--bg);
-  flex-shrink: 0;
-  /* Prevent header from shrinking */
 }
 
 .ai-tool-body {
@@ -185,28 +247,32 @@
   background: var(--surface);
   flex: 1;
   overflow-y: auto;
-  /* Enable scrolling for tool content */
-  min-height: 0;
-  /* Important for nested flex scrolling */
+}
+
+.ai-tool-body input,
+.ai-tool-body textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--text);
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
 }
 
 .ai-tool-header h3 {
-  margin: 0;
-  font-size: 1.1rem;
   color: var(--text);
+  margin: 0;
 }
 
 .close-tool-btn {
+  color: var(--text-secondary);
   background: none;
   border: none;
-  color: var(--text-secondary);
   cursor: pointer;
   font-size: 1.5rem;
   padding: 0.25rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
 }
 
 .close-tool-btn:hover {
@@ -232,7 +298,7 @@
   font-size: 1.2rem;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--bg);
+  background: var(--input-bg);
   color: var(--text);
   transition: all 0.2s ease;
 }
@@ -245,7 +311,7 @@
   line-height: 1.6;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--bg);
+  background: var(--input-bg);
   color: var(--text);
   resize: none;
   transition: all 0.2s ease;
@@ -256,7 +322,7 @@
 .note-content:focus {
   border-color: var(--accent-primary);
   outline: none;
-  box-shadow: 0 0 0 2px rgba(97, 218, 251, 0.1);
+  box-shadow: 0 0 0 2px rgba(99, 179, 237, 0.2);
 }
 
 /* Media Queries */
@@ -532,6 +598,9 @@ textarea.input-field {
   padding: 2rem;
   text-align: center;
   color: var(--text-secondary);
+  background: var(--surface);
+  border-radius: 8px;
+  margin: 1rem 0;
 }
 
 .empty-state h2 {
@@ -625,58 +694,61 @@ textarea.input-field {
 }
 
 .notes-list {
+  background: var(--surface);
+  border-radius: 8px;
   overflow-y: auto;
-  flex-grow: 1;
 }
 
 .note-item {
+  position: relative;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   padding: 12px;
-  border-bottom: 1px solid #eee;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--note-bg);
   cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.note-item:hover {
-  background-color: #f5f5f5;
-}
-
-.note-item.active {
-  background-color: #e3f2fd;
-}
-
-.note-item-content {
-  flex: 1;
-  min-width: 0;
-  /* Allows content to shrink below min-content width */
+  transition: all 0.2s ease;
+  margin-bottom: 8px;
 }
 
 .note-item h3 {
   margin: 0 0 4px 0;
   font-size: 16px;
   font-weight: 600;
-  color: #333;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  color: var(--note-text);
 }
 
 .note-preview {
-  margin: 0;
-  font-size: 14px;
-  color: #666;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  color: var(--note-text-secondary);
+  font-size: 13px;
+  line-height: 1.4;
+  margin: 4px 0;
 }
 
 .note-meta {
+  color: var(--note-text-secondary);
   font-size: 12px;
-  color: #999;
-  margin-top: 4px;
+}
+
+.note-item:hover {
+  background: var(--note-hover-bg);
+  border-color: var(--accent-primary);
+}
+
+.note-item.active {
+  background: var(--note-active-bg);
+  border-color: var(--accent-primary);
+}
+
+.note-item.active h3 {
+  color: var(--note-active-text);
+}
+
+.note-item.active .note-preview,
+.note-item.active .note-meta {
+  color: var(--note-active-text-secondary);
 }
 
 /* Delete Button Styles */
@@ -688,7 +760,7 @@ textarea.input-field {
   opacity: 0;
   transition: opacity 0.2s;
   margin-left: 8px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .note-item:hover .delete-note-btn {
@@ -696,7 +768,7 @@ textarea.input-field {
 }
 
 .delete-note-btn:hover {
-  color: #dc3545;
+  color: #e53e3e;
 }
 
 /* Delete Confirmation Popup Styles */
@@ -706,7 +778,7 @@ textarea.input-field {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.75);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -714,7 +786,7 @@ textarea.input-field {
 }
 
 .delete-confirmation-popup {
-  background: white;
+  background: var(--surface);
   padding: 24px;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
@@ -724,12 +796,12 @@ textarea.input-field {
 
 .delete-confirmation-popup h3 {
   margin: 0 0 16px 0;
-  color: #333;
+  color: var(--text);
 }
 
 .delete-confirmation-popup p {
   margin: 0 0 20px 0;
-  color: #666;
+  color: var(--text-secondary);
   line-height: 1.5;
 }
 
@@ -741,16 +813,16 @@ textarea.input-field {
 
 .cancel-button {
   padding: 8px 16px;
-  border: 1px solid #ddd;
-  background: white;
+  border: 1px solid var(--border);
+  background: var(--surface);
   border-radius: 4px;
   cursor: pointer;
   font-weight: 500;
-  color: #666;
+  color: var(--text);
 }
 
 .cancel-button:hover {
-  background: #f5f5f5;
+  background: var(--hover-bg);
 }
 
 .delete-button {
@@ -1058,9 +1130,9 @@ textarea {
 }
 
 .error-message {
-  color: #dc3545;
-  background-color: #f8d7da;
-  border: 1px solid #f5c6cb;
+  color: var(--error-text);
+  background-color: var(--error-bg);
+  border: 1px solid var(--error-text);
   border-radius: 4px;
   padding: 0.75rem 1.25rem;
   margin: 1rem 0;
@@ -1212,13 +1284,13 @@ textarea {
 .loading {
   padding: 20px;
   text-align: center;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .empty-list {
   padding: 30px;
   text-align: center;
-  color: #666;
+  color: var(--text-secondary);
   background-color: #f9f9f9;
   border-radius: 8px;
   margin-top: 20px;
@@ -1253,7 +1325,7 @@ textarea {
   padding: 0.75rem;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--bg);
+  background: var(--input-bg);
   color: var(--text);
   margin-bottom: 1rem;
   font-size: 0.95rem;
@@ -1266,25 +1338,16 @@ textarea {
 
 /* AI Tool Specific Styles */
 .tool-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  background: var(--tool-bg);
+  padding: 1rem;
+  border-radius: 8px;
 }
 
 .tool-form textarea,
 .tool-form input[type="file"] {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
+  background: var(--input-bg);
   color: var(--text);
-  font-size: 0.95rem;
-}
-
-.tool-form textarea {
-  min-height: 120px;
-  resize: vertical;
+  border: 1px solid var(--border);
 }
 
 .tool-form button {
@@ -1312,25 +1375,12 @@ textarea {
 }
 
 .file-upload-area {
+  background: var(--tool-bg);
   border: 2px dashed var(--border);
-  border-radius: 8px;
-  padding: 2rem 1rem;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.file-upload-area:hover {
-  border-color: var(--accent-primary);
-  background: var(--bg);
 }
 
 .file-preview {
-  margin-top: 1rem;
-  padding: 1rem;
-  background: var(--bg);
-  border-radius: 8px;
-  text-align: center;
+  background: var(--tool-bg);
 }
 
 .file-preview img {
@@ -1360,23 +1410,15 @@ textarea {
   margin-bottom: 16px;
 }
 
-.search-input {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 14px;
-}
-
+.search-input,
 .sort-select {
   width: 100%;
   padding: 8px 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: var(--surface);
+  background: var(--input-bg);
   color: var(--text);
   font-size: 14px;
-  cursor: pointer;
 }
 
 /* Note Item Styles */
@@ -1397,7 +1439,7 @@ textarea {
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.2s;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .note-item:hover .pin-note-btn {
@@ -1416,17 +1458,17 @@ textarea {
   border-radius: 4px;
   font-size: 16px;
   font-weight: 600;
-  background: white;
+  background: var(--input-bg);
   margin: -4px 0;
 }
 
 /* Context Menu */
 .context-menu {
   position: fixed;
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow);
   z-index: 1000;
   min-width: 160px;
 }
@@ -1437,14 +1479,14 @@ textarea {
   padding: 8px 16px;
   text-align: left;
   border: none;
-  background: none;
+  background: var(--surface);
   cursor: pointer;
   font-size: 14px;
   color: var(--text);
 }
 
 .context-menu button:hover {
-  background: var(--bg);
+  background: var(--hover-bg);
 }
 
 .context-menu button+button {
@@ -1482,4 +1524,42 @@ textarea {
 
 .context-menu {
   animation: slideIn 0.2s ease-out;
+}
+
+/* Ensure proper coloring for active states */
+.ai-tool-button.active {
+  background: var(--accent-primary);
+  color: white;
+  border-color: transparent;
+}
+
+/* Fix any remaining light backgrounds */
+.notes-list {
+  background: var(--surface);
+  border-radius: 8px;
+}
+
+.sidebar-content {
+  background: var(--surface);
+}
+
+/* Ensure proper text contrast in dark mode */
+.dark-theme .note-item h3,
+.dark-theme .note-preview,
+.dark-theme .note-meta {
+  color: var(--text);
+}
+
+.dark-theme .note-item:hover {
+  background: var(--hover-bg);
+}
+
+.dark-theme .note-item.active {
+  background: var(--accent-primary);
+}
+
+.dark-theme .note-item.active h3,
+.dark-theme .note-item.active .note-preview,
+.dark-theme .note-item.active .note-meta {
+  color: white;
 }

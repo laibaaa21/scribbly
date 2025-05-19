@@ -155,7 +155,7 @@ The application will be available at http://localhost:3000
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - OpenAI for transformer models
 - Google Cloud for YouTube API

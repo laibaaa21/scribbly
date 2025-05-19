@@ -136,7 +136,6 @@ def abstractive_summarize(text: str, compression_ratio: float = 0.5) -> str:
     # Split text into chunks if it's too long
     max_input_length = 1024  # BART's maximum input length
     chunks = chunk_text(text, max_input_length)
-    
     summaries = []
     for chunk in chunks:
         chunk_length = len(chunk.split())
@@ -149,7 +148,7 @@ def abstractive_summarize(text: str, compression_ratio: float = 0.5) -> str:
             min_length=min(20, target_length - 10),
             length_penalty=1.5,  # Moderate penalty for length
             num_beams=5,  # Increased beam search
-            early_stopping=True,
+                early_stopping=True,
             no_repeat_ngram_size=3,
             do_sample=False,  # Deterministic output
             temperature=1.0,  # Default temperature
@@ -157,11 +156,11 @@ def abstractive_summarize(text: str, compression_ratio: float = 0.5) -> str:
             repetition_penalty=2.5  # Increased penalty for repetition
         )[0]['summary_text']
         
-        summaries.append(chunk_summary)
+    summaries.append(chunk_summary)
     
     # Combine summaries if there were multiple chunks
     final_summary = ' '.join(summaries)
-    
+        
     # Clean up the final summary
     final_summary = final_summary.strip()
     if not final_summary.endswith('.'):

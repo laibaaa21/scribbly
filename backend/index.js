@@ -4,7 +4,6 @@ const connectDB = require('./config/database');
 require('dotenv').config();
 const noteRoutes = require('./routes/noteRoutes');
 const userRoutes = require('./routes/userRoutes');
-const mindmapRoutes = require('./routes/mindmapRoutes');
 const ocrRoutes = require('./routes/ocrRoutes');
 const youtubeRoutes = require('./routes/youtube');
 
@@ -25,7 +24,6 @@ app.get('/', (req, res) => {
 // Use routes
 app.use('/api/notes', noteRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/mindmaps', mindmapRoutes);
 app.use('/api/ocr', ocrRoutes);
 app.use('/api/youtube', youtubeRoutes);
 

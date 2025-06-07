@@ -16,12 +16,13 @@ export const AuthProvider = ({ children }) => {
     const verifyToken = async () => {
       if (token) {
         try {
+          console.log('Verifying token:', token.substring(0, 20) + '...');
           const userData = await getUserProfile(token);
           setCurrentUser(userData);
         } catch (error) {
-          // Token might be expired or invalid
+          console.error('Token verification failed:', error);
+          // Token is invalid, clear it
           logout();
-          console.error('Authentication error:', error);
         }
       }
       setLoading(false);
@@ -33,12 +34,23 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     setError('');
     try {
-      const data = await loginUser({ email, password });
-      localStorage.setItem('token', data.token);
-      setToken(data.token);
-      setCurrentUser(data);
-      return data;
+      const response = await loginUser({ email, password });
+      
+      if (!response || !response.token) {
+        throw new Error('No token received from server');
+      }
+
+      // Store the token
+      localStorage.setItem('token', response.token);
+      setToken(response.token);
+
+      // Get user profile with the new token
+      const userData = await getUserProfile(response.token);
+      setCurrentUser(userData);
+
+      return { token: response.token, user: userData };
     } catch (error) {
+      console.error('Login error:', error);
       setError(error.message || 'Failed to login');
       throw error;
     }
@@ -47,12 +59,23 @@ export const AuthProvider = ({ children }) => {
   const register = async (username, email, password) => {
     setError('');
     try {
-      const data = await registerUser({ username, email, password });
-      localStorage.setItem('token', data.token);
-      setToken(data.token);
-      setCurrentUser(data);
-      return data;
+      const response = await registerUser({ username, email, password });
+      
+      if (!response || !response.token) {
+        throw new Error('No token received from server');
+      }
+
+      // Store the token
+      localStorage.setItem('token', response.token);
+      setToken(response.token);
+
+      // Get user profile with the new token
+      const userData = await getUserProfile(response.token);
+      setCurrentUser(userData);
+
+      return { token: response.token, user: userData };
     } catch (error) {
+      console.error('Registration error:', error);
       setError(error.message || 'Failed to register');
       throw error;
     }

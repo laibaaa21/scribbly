@@ -18,19 +18,26 @@ except Exception as e:
     print(f"Error downloading NLTK data: {e}")
 
 # Initialize the summarization pipeline with BART model and tokenizer
-try:
-    model_name = "facebook/bart-large-cnn"
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    summarizer = pipeline(
-        "summarization",
-        model=model_name,
-        tokenizer=tokenizer,
-        device="cpu",  # Change to "cuda" if you have GPU
-        framework="pt"
-    )
-except Exception as e:
-    print(f"Error loading BART model: {e}")
-    summarizer = None
+def initialize_model():
+    global summarizer, tokenizer
+    try:
+        model_name = "facebook/bart-large-cnn"
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        summarizer = pipeline(
+            "summarization",
+            model=model_name,
+            tokenizer=tokenizer,
+            device="cpu",  # Change to "cuda" if you have GPU
+            framework="pt"
+        )
+        print("Successfully initialized BART model and tokenizer")
+        return True
+    except Exception as e:
+        print(f"Error initializing BART model: {e}")
+        return False
+
+# Try to initialize the model at startup
+model_initialized = initialize_model()
 
 router = APIRouter(
     tags=["summarizer"]
@@ -156,9 +163,9 @@ def abstractive_summarize(text: str, compression_ratio: float = 0.5) -> str:
             repetition_penalty=2.5  # Increased penalty for repetition
         )[0]['summary_text']
         
-    summaries.append(chunk_summary)
-    
-    # Combine summaries if there were multiple chunks
+        summaries.append(chunk_summary)
+        
+        # Combine summaries if there were multiple chunks
     final_summary = ' '.join(summaries)
         
     # Clean up the final summary
@@ -177,14 +184,25 @@ async def summarize_text(request: SummarizeRequest):
         if request.method == "extractive":
             summary = extractive_summarize(request.text, request.compression_ratio)
         else:
-            if not summarizer:
-                raise HTTPException(status_code=500, detail="Abstractive summarization model not loaded")
+            if not model_initialized:
+                # Try to initialize the model again if it failed at startup
+                if not initialize_model():
+                    raise HTTPException(
+                        status_code=500,
+                        detail="Failed to initialize summarization model. Please try again later."
+                    )
             summary = abstractive_summarize(request.text, request.compression_ratio)
+
+        if not summary:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to generate summary"
+            )
 
         return SummarizeResponse(summary=summary)
 
     except Exception as e:
-        print(f"Summarization error: {e}")
+        print(f"Summarization error: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate summary: {str(e)}"

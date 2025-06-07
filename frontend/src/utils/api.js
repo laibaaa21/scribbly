@@ -3,8 +3,10 @@ const AI_API_URL = 'http://localhost:5001/api';
 
 // Helper function for making API requests
 async function apiRequest(endpoint, method = 'GET', data = null, token = null, useAIAPI = false) {
+  console.log(`Making ${method} request to ${endpoint} with token:`, token?.substring(0, 20) + '...');
+  
   const headers = {
-    'Content-Type': 'application/json',
+    'Content-Type': 'application/json'
   };
 
   if (token) {
@@ -23,10 +25,18 @@ async function apiRequest(endpoint, method = 'GET', data = null, token = null, u
   try {
     const baseURL = useAIAPI ? AI_API_URL : API_URL;
     const response = await fetch(`${baseURL}${endpoint}`, config);
+    
     const responseData = await response.json();
 
     if (!response.ok) {
-      throw new Error(responseData.message || 'Something went wrong');
+      console.error('API request error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: responseData
+      });
+      
+      // Throw error with server message if available
+      throw new Error(responseData.detail || responseData.message || 'API request failed');
     }
 
     return responseData;
@@ -114,6 +124,9 @@ export const loginUser = (credentials) => {
 };
 
 export const getUserProfile = (token) => {
+  if (!token) {
+    throw new Error('No token provided for user profile request');
+  }
   return apiRequest('/users/profile', 'GET', null, token);
 };
 
@@ -189,12 +202,33 @@ export const processOcrImage = (imageFile, language = 'eng', token) => {
 };
 
 // Text Summarization API calls
-export const summarizeText = async (text, compressionLevel = 0.5, method = 'abstractive', token) => {
-  return apiRequest('/summarize', 'POST', {
-    text,
-    compression_ratio: compressionLevel,
-    method
-  }, token, true);
+export const summarizeText = async (text, compressionLevel = 0.5, modelId, token) => {
+  console.log('Sending summarization request with token:', token?.substring(0, 20) + '...');
+  
+  const response = await fetch('http://localhost:8000/summarize', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      text,
+      compression_level: compressionLevel,
+      model_id: modelId
+    })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    console.error('Summarization error:', {
+      status: response.status,
+      statusText: response.statusText,
+      error: errorData
+    });
+    throw new Error(errorData.detail || 'Failed to summarize text');
+  }
+
+  return await response.json();
 };
 
 export default {

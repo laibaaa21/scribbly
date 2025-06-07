@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import './YouTube.css';
 
 const YouTube = () => {
@@ -6,6 +7,7 @@ const YouTube = () => {
   const [results, setResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const { token } = useAuth();
 
   // Fallback videos in case API fails
   const fallbackVideos = [
@@ -52,58 +54,40 @@ const YouTube = () => {
     setError('');
 
     try {
-      // First try with direct API call
-      let response;
+      const response = await fetch('http://localhost:8000/YtSuggestion', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          query: keywords,
+          max_results: 5
+        })
+      });
 
-      try {
-        // Try the FastAPI backend running at port 8000
-        response = await fetch('http://localhost:8000/api/YtSuggestion', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify({
-            query: keywords,
-            max_results: 5
-          })
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.detail || `API request failed with status ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        // Transform the response data into our expected format
-        const videoResults = data.video_titles.map((title, index) => ({
-          title: title,
-          url: data.video_links[index],
-          channelName: data.channel_names[index],
-          thumbnail: `https://i.ytimg.com/vi/${data.video_links[index].split('v=')[1]}/hqdefault.jpg`
-        }));
-
-        setResults(videoResults);
-      } catch (err) {
-        console.error('Error fetching videos:', err);
-        setError(err.message || 'Failed to fetch videos. Please try again.');
-        setResults([]);
-      } finally {
-        setIsLoading(false);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || `API request failed with status ${response.status}`);
       }
+
+      const data = await response.json();
+
+      // Transform the response data into our expected format
+      const videoResults = data.video_titles.map((title, index) => ({
+        title: title,
+        url: data.video_links[index],
+        channelName: data.channel_names[index],
+        thumbnail: `https://i.ytimg.com/vi/${data.video_links[index].split('v=')[1]}/hqdefault.jpg`
+      }));
+
+      setResults(videoResults);
     } catch (err) {
       console.error('Error fetching videos:', err);
-
-      // If we're in development mode, use mock data for testing
-      if (process.env.NODE_ENV === 'development') {
-        const mockResults = generateMockResults(keywords);
-        setResults(mockResults);
-        setError('Using mock data for development (API not available)');
-      } else {
-        setError('Failed to fetch videos from YouTube. Using our recommended selections instead.');
-        setResults(fallbackVideos);
-      }
+      setError(err.message || 'Failed to fetch videos. Please try again.');
+      setResults([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 

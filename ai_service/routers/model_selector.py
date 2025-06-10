@@ -1,9 +1,11 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 from models.model_factory import ModelFactory
-from auth.auth_handler import get_current_user, decode_jwt_without_verification, SECRET_KEY
+from auth.auth_handler import get_current_user, SECRET_KEY
 import jwt
+import traceback
 
 router = APIRouter(
     prefix="/models",
@@ -41,9 +43,11 @@ async def get_available_models(request: Request, current_user: Dict = Depends(ge
             print(f"Retrieved models: {models}")
             print("=== End Models Route Debug ===\n")
             return models
+            
         except Exception as model_error:
             print(f"Error in ModelFactory: {str(model_error)}")
             print(f"Error type: {type(model_error).__name__}")
+            print(traceback.format_exc())
             raise HTTPException(
                 status_code=500,
                 detail=f"Model factory error: {str(model_error)}"
@@ -57,6 +61,7 @@ async def get_available_models(request: Request, current_user: Dict = Depends(ge
     except Exception as e:
         print(f"Unexpected error in get_available_models: {str(e)}")
         print(f"Error type: {type(e).__name__}")
+        print(traceback.format_exc())
         raise HTTPException(
             status_code=500,
             detail=f"Server error: {str(e)}"
@@ -64,16 +69,17 @@ async def get_available_models(request: Request, current_user: Dict = Depends(ge
 
 @router.post("/generate")
 async def generate_text(
-    request: GenerateRequest,
+    request: Request,
+    generate_request: GenerateRequest,
     current_user: Dict = Depends(get_current_user)
 ):
     """Generate text using the selected model."""
     try:
-        print(f"Generate request for model: {request.model_id}")  # Debug log
+        print(f"Generate request for model: {generate_request.model_id}")
         subscription_tier = current_user.get("subscription_tier", "personal")
         
         try:
-            model = ModelFactory.get_model(request.model_id, subscription_tier)
+            model = ModelFactory.get_model(generate_request.model_id, subscription_tier)
         except ValueError as ve:
             raise HTTPException(status_code=400, detail=str(ve))
         except Exception as model_error:
@@ -83,18 +89,18 @@ async def generate_text(
             )
         
         # Add user-specific parameters
-        parameters = request.parameters or {}
+        parameters = generate_request.parameters or {}
         parameters["max_tokens"] = min(
             parameters.get("max_tokens", 1024),
             model.get_model_info()["max_tokens"]
         )
         
-        result = model.generate(request.prompt, **parameters)
+        result = model.generate(generate_request.prompt, **parameters)
         return {"result": result}
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error in generate_text: {str(e)}")  # Debug log
+        print(f"Error in generate_text: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/test-auth")

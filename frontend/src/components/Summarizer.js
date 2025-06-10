@@ -44,13 +44,17 @@ const Summarizer = () => {
           'Authorization': token.startsWith('Bearer ') ? token : `Bearer ${token}`,
           'Content-Type': 'application/json',
           'Accept': 'application/json'
-        },
-        mode: 'cors',
-        credentials: 'include'
+        }
       };
+
+      console.log('Fetching models with config:', requestConfig);
+      console.log('Using token:', token.substring(0, 20) + '...');
 
       const response = await fetch('http://localhost:8000/models/available', requestConfig);
       
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
       if (response.status === 401) {
         const errorData = await response.json().catch(() => ({}));
         console.error('Authentication failed. Server response:', errorData);
@@ -152,12 +156,14 @@ const Summarizer = () => {
 
   return (
     <div className="summarizer-container">
-      <h2>AI Text Summarizer</h2>
-      <p className="model-info">
-        {currentUser?.subscription_tier === 'corporate' 
-          ? 'Corporate tier - Access to all models'
-          : 'Personal tier - Access to basic models'}
-      </p>
+      <div className="summarizer-header">
+        <h2>AI Text Summarizer</h2>
+        <div className="subscription-badge">
+          <span className={`tier-badge ${currentUser?.subscription_tier}`}>
+            {currentUser?.subscription_tier === 'corporate' ? '💼 Corporate' : '👤 Personal'} Tier
+          </span>
+        </div>
+      </div>
 
       {error && <div className="summarizer-error">{error}</div>}
 
@@ -178,12 +184,18 @@ const Summarizer = () => {
               onChange={(e) => setSelectedModel(e.target.value)}
               className="model-select"
             >
+              <option value="">Select a model</option>
               {availableModels.map((model) => (
                 <option key={model.id} value={model.id}>
                   {model.name} - {model.description}
                 </option>
               ))}
             </select>
+            <small className="model-info">
+              {currentUser?.subscription_tier === 'corporate' 
+                ? 'You have access to all advanced AI models'
+                : 'Upgrade to corporate tier for access to advanced models'}
+            </small>
           </div>
 
           <div className="compression-control">
@@ -204,7 +216,7 @@ const Summarizer = () => {
 
           <button
             onClick={handleSummarize}
-            disabled={isLoading || !text.trim()}
+            disabled={isLoading || !text.trim() || !selectedModel}
             className="summarizer-button primary"
           >
             {isLoading ? (

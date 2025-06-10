@@ -15,9 +15,10 @@ const authUser = asyncHandler(async (req, res) => {
       _id: user._id,
       username: user.username,
       email: user.email,
+      subscription_tier: user.subscription_tier,
       isAdmin: user.isAdmin,
       preferences: user.preferences,
-      token: generateToken(user._id),
+      token: generateToken(user._id, user.subscription_tier),
     });
   } else {
     res.status(401);
@@ -29,7 +30,7 @@ const authUser = asyncHandler(async (req, res) => {
 // @route   POST /api/users
 // @access  Public
 const registerUser = asyncHandler(async (req, res) => {
-  const { username, email, password } = req.body;
+  const { username, email, password, subscription_tier } = req.body;
 
   const userExists = await User.findOne({ $or: [{ email }, { username }] });
 
@@ -42,6 +43,7 @@ const registerUser = asyncHandler(async (req, res) => {
     username,
     email,
     password,
+    subscription_tier: subscription_tier || 'personal',
   });
 
   if (user) {
@@ -49,9 +51,10 @@ const registerUser = asyncHandler(async (req, res) => {
       _id: user._id,
       username: user.username,
       email: user.email,
+      subscription_tier: user.subscription_tier,
       isAdmin: user.isAdmin,
       preferences: user.preferences,
-      token: generateToken(user._id),
+      token: generateToken(user._id, user.subscription_tier),
     });
   } else {
     res.status(400);
@@ -70,6 +73,7 @@ const getUserProfile = asyncHandler(async (req, res) => {
       _id: user._id,
       username: user.username,
       email: user.email,
+      subscription_tier: user.subscription_tier,
       isAdmin: user.isAdmin,
       preferences: user.preferences,
     });
@@ -88,6 +92,7 @@ const updateUserProfile = asyncHandler(async (req, res) => {
   if (user) {
     user.username = req.body.username || user.username;
     user.email = req.body.email || user.email;
+    user.subscription_tier = req.body.subscription_tier || user.subscription_tier;
     
     if (req.body.preferences) {
       user.preferences = {
@@ -106,9 +111,10 @@ const updateUserProfile = asyncHandler(async (req, res) => {
       _id: updatedUser._id,
       username: updatedUser.username,
       email: updatedUser.email,
+      subscription_tier: updatedUser.subscription_tier,
       isAdmin: updatedUser.isAdmin,
       preferences: updatedUser.preferences,
-      token: generateToken(updatedUser._id),
+      token: generateToken(updatedUser._id, updatedUser.subscription_tier),
     });
   } else {
     res.status(404);
@@ -117,10 +123,17 @@ const updateUserProfile = asyncHandler(async (req, res) => {
 });
 
 // Generate JWT
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: '30d',
-  });
+const generateToken = (id, subscription_tier) => {
+  return jwt.sign(
+    { 
+      id,
+      subscription_tier: subscription_tier || 'personal'
+    }, 
+    process.env.JWT_SECRET, 
+    {
+      expiresIn: '30d',
+    }
+  );
 };
 
 module.exports = {

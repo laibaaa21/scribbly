@@ -17,6 +17,12 @@ const userSchema = mongoose.Schema(
       type: String,
       required: true,
     },
+    subscription_tier: {
+      type: String,
+      enum: ['personal', 'corporate'],
+      default: 'personal',
+      required: true,
+    },
     isAdmin: {
       type: Boolean,
       required: true,

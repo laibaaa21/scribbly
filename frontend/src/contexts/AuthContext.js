@@ -46,7 +46,10 @@ export const AuthProvider = ({ children }) => {
 
       // Get user profile with the new token
       const userData = await getUserProfile(response.token);
-      setCurrentUser(userData);
+      setCurrentUser({
+        ...userData,
+        subscription_tier: userData.subscription_tier || 'personal' // Ensure tier is available
+      });
 
       return { token: response.token, user: userData };
     } catch (error) {
@@ -56,10 +59,15 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async (username, email, password) => {
+  const register = async (username, email, password, subscriptionTier) => {
     setError('');
     try {
-      const response = await registerUser({ username, email, password });
+      const response = await registerUser({ 
+        username, 
+        email, 
+        password,
+        subscription_tier: subscriptionTier || 'personal' // Include tier in registration
+      });
       
       if (!response || !response.token) {
         throw new Error('No token received from server');
@@ -71,7 +79,10 @@ export const AuthProvider = ({ children }) => {
 
       // Get user profile with the new token
       const userData = await getUserProfile(response.token);
-      setCurrentUser(userData);
+      setCurrentUser({
+        ...userData,
+        subscription_tier: subscriptionTier || 'personal'
+      });
 
       return { token: response.token, user: userData };
     } catch (error) {

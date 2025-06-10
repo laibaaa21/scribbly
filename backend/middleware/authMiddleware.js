@@ -17,7 +17,15 @@ const protect = asyncHandler(async (req, res, next) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
       // Get user from the token
-      req.user = await User.findById(decoded.id).select('-password');
+      const user = await User.findById(decoded.id).select('-password');
+      
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // Add user and subscription tier to request
+      req.user = user;
+      req.subscription_tier = decoded.subscription_tier || user.subscription_tier || 'personal';
 
       next();
     } catch (error) {
@@ -42,4 +50,18 @@ const admin = (req, res, next) => {
   }
 };
 
-module.exports = { protect, admin }; 
+// Middleware to check subscription tier
+const checkTier = (requiredTier) => {
+  return (req, res, next) => {
+    const userTier = req.subscription_tier || 'personal';
+    
+    if (userTier === 'corporate' || userTier === requiredTier) {
+      next();
+    } else {
+      res.status(403);
+      throw new Error(`This feature requires ${requiredTier} subscription`);
+    }
+  };
+};
+
+module.exports = { protect, admin, checkTier }; 

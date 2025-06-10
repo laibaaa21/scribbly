@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from typing import Dict
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.security import OAuth2PasswordBearer
+from fastapi.responses import JSONResponse
+from typing import Dict, Optional
 import jwt
 from datetime import datetime, timedelta
 import os
@@ -24,7 +25,11 @@ router = APIRouter(
     tags=["auth"]
 )
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
+# Configure OAuth2 without automatic redirect
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="auth/token",
+    auto_error=False  # Don't automatically raise errors
+)
 
 class Token(BaseModel):
     access_token: str
@@ -33,151 +38,118 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     username: str | None = None
 
-def decode_jwt_without_verification(token: str) -> dict:
-    """Decode JWT without verification to inspect payload"""
-    try:
-        parts = token.split('.')
-        if len(parts) != 3:
-            return {"error": "Token does not have three parts"}
-        
-        # Decode header and payload
-        header = json.loads(base64.urlsafe_b64decode(parts[0] + '=' * (-len(parts[0]) % 4)).decode())
-        payload = json.loads(base64.urlsafe_b64decode(parts[1] + '=' * (-len(parts[1]) % 4)).decode())
-        
-        return {
-            "header": header,
-            "payload": payload,
-            "signature_part": parts[2][:10] + "..."  # Show first 10 chars of signature
-        }
-    except Exception as e:
-        return {"error": f"Failed to decode token: {str(e)}"}
+async def get_token_from_request(request: Request) -> Optional[str]:
+    """Extract token from request headers or query parameters"""
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        return auth_header.replace("Bearer ", "")
+    return None
 
-def create_access_token(data: dict):
+async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)) -> Dict:
+    """Get current user from token with better error handling"""
+    print("\n=== Token Validation Debug ===")
+    
+    # Try to get token from request if not provided through oauth2_scheme
+    if not token:
+        token = await get_token_from_request(request)
+    
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No authentication token provided",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    
+    print(f"Validating token (first 20 chars): {token[:20]}...")
+    
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub") or payload.get("id")
+        
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token content"
+            )
+            
+        subscription_tier = payload.get("subscription_tier", "personal")
+        if subscription_tier not in ["personal", "corporate"]:
+            subscription_tier = "personal"
+            
+        return {
+            "id": user_id,
+            "subscription_tier": subscription_tier
+        }
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired"
+        )
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token"
+        )
+    except Exception as e:
+        print(f"Unexpected error in get_current_user: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication error"
+        )
+
+def create_access_token(data: dict) -> str:
+    """Create a new access token"""
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({
         "exp": expire,
         "iat": datetime.utcnow(),
-        "id": data.get("sub"),  # Add id field to match frontend expectation
-        "subscription_tier": data.get("subscription_tier", "personal")  # Default to personal tier
+        "id": data.get("sub"),
+        "subscription_tier": data.get("subscription_tier", "personal")
     })
+    
     try:
-        print("\nCreating new token:")
-        print(f"Payload: {to_encode}")
-        print(f"Using SECRET_KEY (first 10 chars): {SECRET_KEY[:10] if SECRET_KEY else 'Not set'}")
-        print(f"Algorithm: {ALGORITHM}")
-        
-        encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-        
-        # Debug: Decode the token we just created to verify it
-        debug_decode = decode_jwt_without_verification(encoded_jwt)
-        print(f"Decoded token for verification: {debug_decode}")
-        
-        return encoded_jwt
+        return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     except Exception as e:
         print(f"Error creating token: {str(e)}")
-        raise
-
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> Dict:
-    print("\n=== Token Validation Debug ===")
-    print(f"Received token (first 20 chars): {token[:20]}...")
-    print(f"Using SECRET_KEY (first 10 chars): {SECRET_KEY[:10] if SECRET_KEY else 'Not set'}")
-    
-    # Debug: Decode token without verification
-    debug_decode = decode_jwt_without_verification(token)
-    print(f"Token structure: {debug_decode}")
-    
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    
-    try:
-        print("\nAttempting to decode and verify JWT token...")
-        print(f"Token being verified: {token[:50]}...")
-        print(f"Algorithm being used: {ALGORITHM}")
-        
-        # First try to decode without verification to check structure
-        unverified_payload = decode_jwt_without_verification(token)
-        print("Unverified payload structure:", unverified_payload)
-        
-        # Now verify and decode
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        print(f"Successfully decoded payload: {payload}")
-        
-        # Check for user identifier in multiple fields
-        user_id = None
-        if "sub" in payload:
-            user_id = payload["sub"]
-            print("Found user_id in 'sub' field:", user_id)
-        elif "id" in payload:
-            user_id = payload["id"]
-            print("Found user_id in 'id' field:", user_id)
-        
-        if not user_id:
-            print("No valid user identifier found in token")
-            print("Available fields:", list(payload.keys()))
-            raise credentials_exception
-            
-        # Get subscription tier from token or default to personal
-        subscription_tier = payload.get("subscription_tier", "personal")
-        
-        user_data = {
-            "id": user_id,
-            "subscription_tier": subscription_tier
-        }
-        print(f"Returning user data: {user_data}")
-        print("=== End Token Validation ===\n")
-        return user_data
-        
-    except jwt.ExpiredSignatureError:
-        print("Token has expired")
-        print("Token expiry time:", payload.get("exp") if 'payload' in locals() else "Unknown")
-        print("Current time:", datetime.utcnow())
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    except jwt.InvalidSignatureError:
-        print("Invalid token signature")
-        print("Token header:", debug_decode.get("header"))
-        print("Expected algorithm:", ALGORITHM)
-        raise credentials_exception
-    except jwt.PyJWTError as e:
-        print(f"JWT Error: {str(e)}")
-        print(f"Token being verified: {token}")
-        print(f"JWT Error type: {type(e).__name__}")
-        raise credentials_exception
-    except Exception as e:
-        print(f"Unexpected error in get_current_user: {str(e)}")
-        print(f"Error type: {type(e).__name__}")
-        print(f"Error args: {e.args}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Authentication error: {str(e)}"
+            detail="Error creating access token"
         )
 
 @router.post("/token", response_model=Token)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+async def login_for_access_token(request: Request):
+    """Handle login and token generation"""
     try:
-        print("\n=== Token Generation Debug ===")
-        print(f"Creating token for username: {form_data.username}")
+        form_data = await request.json()
+        username = form_data.get("username")
+        password = form_data.get("password")
         
-        access_token = create_access_token(
-            data={"sub": form_data.username}
-        )
+        if not username or not password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing username or password"
+            )
         
-        # Debug: Verify the token we just created
-        debug_decode = decode_jwt_without_verification(access_token)
-        print(f"Generated token structure: {debug_decode}")
-        print("=== End Token Generation ===\n")
+        # Here you would verify the user credentials
+        subscription_tier = get_user_subscription_tier(username)
+        
+        access_token = create_access_token({
+            "sub": username,
+            "subscription_tier": subscription_tier
+        })
         
         return {"access_token": access_token, "token_type": "bearer"}
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Error in login_for_access_token: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating access token: {str(e)}"
-        ) 
+            detail=str(e)
+        )
+
+def get_user_subscription_tier(username: str) -> str:
+    """Get user's subscription tier - replace with actual database lookup"""
+    return "personal" 

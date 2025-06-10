@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { createMindmap } from '../utils/api';
+import { apiRequest, createMindmap } from '../utils/api';
 
 const CreateMindmap = ({ onSuccess }) => {
   const [title, setTitle] = useState('');
@@ -15,6 +15,16 @@ const CreateMindmap = ({ onSuccess }) => {
   const [generationError, setGenerationError] = useState('');
   
   const { token } = useAuth();
+
+  const saveMindmap = async (mindmapData) => {
+    try {
+      await createMindmap(mindmapData, token);
+      onSuccess();
+    } catch (err) {
+      console.error('Error saving mindmap:', err);
+      setGenerationError(`Failed to save mindmap: ${err.message}`);
+    }
+  };
 
   // Generate color based on keyword/text 
   const generateColor = (text) => {
@@ -226,25 +236,12 @@ const CreateMindmap = ({ onSuccess }) => {
     setGenerationError('');
 
     try {
-      // Call the backend API
-      const response = await fetch('http://localhost:8000/Mindmap-gen', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          text: mainText,
-          max_depth: 3,
-          min_keywords: 5,
-          max_keywords: 8
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`API request failed with status ${response.status}`);
-      }
-
-      const data = await response.json();
+      const data = await apiRequest('/Mindmap-gen', 'POST', {
+        text: mainText,
+        max_depth: 3,
+        min_keywords: 5,
+        max_keywords: 8
+      }, token, true);
 
       if (data.status === 'success' && data.mindmap) {
         // Update title if it's empty

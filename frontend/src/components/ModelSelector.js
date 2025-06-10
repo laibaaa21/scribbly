@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { getAvailableModels } from '../utils/api';
 import './ModelSelector.css';
 
 const ModelSelector = ({ onModelSelect, selectedModel }) => {
@@ -15,17 +16,7 @@ const ModelSelector = ({ onModelSelect, selectedModel }) => {
     const fetchAvailableModels = async () => {
         try {
             setLoading(true);
-            const response = await fetch('http://localhost:5001/models/available', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to fetch models');
-            }
-
-            const data = await response.json();
+            const data = await getAvailableModels(token);
             setModels(data);
             setError('');
         } catch (err) {

@@ -24,17 +24,6 @@ class YouTubeSearchResponse(BaseModel):
     video_links: List[str]
     channel_names: List[str]
 
-@router.options("/YtSuggestion")
-async def options_youtube_suggestion():
-    return JSONResponse(
-        content={"message": "OK"},
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        },
-    )
-
 # Dictionary of search terms to real video IDs for common educational topics
 MOCK_VIDEO_DATABASE = {
     "default": [

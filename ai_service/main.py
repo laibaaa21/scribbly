@@ -73,6 +73,10 @@ async def health_check(request: Request):
 from routers import youtube
 app.include_router(youtube.router)
 
+# Add the summarizer router
+from routers import summarizer
+app.include_router(summarizer.router)
+
 # Log startup configuration
 @app.on_event("startup")
 async def startup_event():

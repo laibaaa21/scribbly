@@ -264,37 +264,37 @@ export const processOcrImage = (imageFile, language = 'eng', token) => {
 };
 
 // Text Summarization API calls
-export const summarizeText = async (text, compressionRatio, modelName, token) => {
-  if (!token) {
-    throw new Error('Authentication token is required');
-  }
-
-  try {
-    const response = await fetch('http://localhost:8000/summarizer/', {
-      method: 'POST',
-      headers: {
-        'Authorization': token.startsWith('Bearer ') ? token : `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({
-        text,
-        compression_ratio: compressionRatio,
-        model_name: modelName
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || errorData.message || 'Failed to summarize text');
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Summarization error:', error);
-    throw error;
-  }
-};
+// export const summarizeText = async (text, compressionRatio, modelName, token) => {
+//   if (!token) {
+//     throw new Error('Authentication token is required');
+//   }
+//
+//   try {
+//     const response = await fetch('http://localhost:8000/summarizer/', {
+//       method: 'POST',
+//       headers: {
+//         'Authorization': token.startsWith('Bearer ') ? token : `Bearer ${token}`,
+//         'Content-Type': 'application/json',
+//         'Accept': 'application/json'
+//       },
+//       body: JSON.stringify({
+//         text,
+//         compression_ratio: compressionRatio,
+//         model_name: modelName
+//       })
+//     });
+//
+//     if (!response.ok) {
+//       const errorData = await response.json().catch(() => ({}));
+//       throw new Error(errorData.detail || errorData.message || 'Failed to summarize text');
+//     }
+//
+//     return await response.json();
+//   } catch (error) {
+//     console.error('Summarization error:', error);
+//     throw error;
+//   }
+// };
 
 export default {
   registerUser,
@@ -311,6 +311,5 @@ export default {
   updateMindmap,
   deleteMindmap,
   processOcrImage,
-  summarizeText,
   getAvailableModels,
 }; 

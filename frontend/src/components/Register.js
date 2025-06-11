@@ -6,6 +6,7 @@ const Register = ({ onSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [accountType, setAccountType] = useState('personal');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
@@ -14,7 +15,7 @@ const Register = ({ onSuccess }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!username || !email || !password || !confirmPassword) {
+    if (!username || !email || !password || !confirmPassword || !accountType) {
       setError('All fields are required');
       return;
     }
@@ -27,7 +28,7 @@ const Register = ({ onSuccess }) => {
     try {
       setError('');
       setLoading(true);
-      await register(username, email, password);
+      await register(username, email, password, accountType);
       if (onSuccess) onSuccess();
     } catch (error) {
       setError(error.message || 'Failed to register');
@@ -62,6 +63,19 @@ const Register = ({ onSuccess }) => {
             onChange={(e) => setEmail(e.target.value)}
             required
           />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="accountType">Account Type</label>
+          <select
+            id="accountType"
+            value={accountType}
+            onChange={(e) => setAccountType(e.target.value)}
+            required
+          >
+            <option value="personal">Personal</option>
+            <option value="corporate">Corporate</option>
+          </select>
         </div>
         
         <div className="form-group">

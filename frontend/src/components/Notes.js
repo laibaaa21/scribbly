@@ -7,18 +7,19 @@ import OCR from './OCR';
 import YouTube from './YouTube';
 import CreateMindmap from './CreateMindmap';
 
-const Notes = ({ sidebarVisible }) => {
+const Notes = ({ sidebarVisible, activeAITool, onAIToolSelect }) => {
   const { token } = useAuth();
   const [notes, setNotes] = useState([]);
-  const [currentNote, setCurrentNote] = useState({ _id: null, content: '', title: '' });
-  const [searchTerm, setSearchTerm] = useState('');
+  const [currentNote, setCurrentNote] = useState({});
+  const [openTabs, setOpenTabs] = useState([]);
+  const [activeTabId, setActiveTabId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [activeAITool, setActiveAITool] = useState(null);
-  const [deleteConfirmation, setDeleteConfirmation] = useState({ show: false, noteId: null });
-  const [editingTitleId, setEditingTitleId] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState('lastEdited');
   const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0, noteId: null });
+  const [deleteConfirmation, setDeleteConfirmation] = useState({ show: false, noteId: null });
+  const [editingTitleId, setEditingTitleId] = useState(null);
   const titleInputRef = useRef(null);
 
   useEffect(() => {
@@ -61,8 +62,8 @@ const Notes = ({ sidebarVisible }) => {
         throw new Error('Invalid response from server');
       }
 
-      setNotes(prevNotes => [createdNote, ...prevNotes]);
-      setCurrentNote(createdNote);
+             setNotes(prevNotes => [createdNote, ...prevNotes]);
+       openNoteInTab(createdNote);
     } catch (error) {
       console.error('Error creating note:', error);
       setError(error.message || 'Failed to create note');
@@ -87,9 +88,20 @@ const Notes = ({ sidebarVisible }) => {
         content: currentNote.content
       }, token);
 
+      // Update notes list
       setNotes(prevNotes => prevNotes.map(note =>
         note._id === updatedNote._id ? updatedNote : note
       ));
+
+      // Update current note with server response
+      setCurrentNote(updatedNote);
+
+      // Update the tab content
+      setOpenTabs(prevTabs => 
+        prevTabs.map(tab =>
+          tab._id === updatedNote._id ? updatedNote : tab
+        )
+      );
     } catch (error) {
       console.error('Error saving note:', error);
       setError(error.message || 'Failed to save note');
@@ -247,9 +259,9 @@ const Notes = ({ sidebarVisible }) => {
 
   const handleAIToolClick = (tool) => {
     if (activeAITool === tool) {
-      setActiveAITool(null);
+      onAIToolSelect(null);
     } else {
-      setActiveAITool(tool);
+      onAIToolSelect(tool);
     }
   };
 
@@ -257,30 +269,14 @@ const Notes = ({ sidebarVisible }) => {
     if (!activeAITool) return null;
 
     const toolComponents = {
-      mindmap: <CreateMindmap onClose={() => setActiveAITool(null)} />,
-      ocr: <OCR onClose={() => setActiveAITool(null)} />,
-      tts: <TextToSpeech onClose={() => setActiveAITool(null)} />,
-      summarizer: <Summarizer onClose={() => setActiveAITool(null)} />,
-      youtube: <YouTube onClose={() => setActiveAITool(null)} />
+      mindmap: <CreateMindmap onClose={() => onAIToolSelect(null)} />,
+      ocr: <OCR onClose={() => onAIToolSelect(null)} />,
+      tts: <TextToSpeech onClose={() => onAIToolSelect(null)} />,
+      summarizer: <Summarizer onClose={() => onAIToolSelect(null)} />,
+      youtube: <YouTube onClose={() => onAIToolSelect(null)} />
     };
 
-    return (
-      <div className={`ai-tool-content ${activeAITool ? 'expanded' : ''}`}>
-        <div className="ai-tool-header">
-          <h3>{getToolTitle(activeAITool)}</h3>
-          <button
-            className="close-tool-btn"
-            onClick={() => setActiveAITool(null)}
-            aria-label="Close tool"
-          >
-            ×
-          </button>
-        </div>
-        <div className="ai-tool-body">
-          {toolComponents[activeAITool]}
-        </div>
-      </div>
-    );
+    return toolComponents[activeAITool];
   };
 
   const getToolTitle = (tool) => {
@@ -300,6 +296,131 @@ const Notes = ({ sidebarVisible }) => {
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
+
+  const openNoteInTab = (note) => {
+    if (!openTabs.find(tab => tab._id === note._id)) {
+      setOpenTabs([...openTabs, note]);
+    }
+    setActiveTabId(note._id);
+    setCurrentNote(note);
+  };
+
+  const closeTab = (noteId, event) => {
+    event.stopPropagation();
+    const newTabs = openTabs.filter(tab => tab._id !== noteId);
+    setOpenTabs(newTabs);
+    
+    if (activeTabId === noteId) {
+      const lastTab = newTabs[newTabs.length - 1];
+      if (lastTab) {
+        setActiveTabId(lastTab._id);
+        setCurrentNote(lastTab);
+      } else {
+        setActiveTabId(null);
+        setCurrentNote({});
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (activeAITool) {
+      // Create a new AI tool tab when an AI tool is selected
+      const toolTitles = {
+        mindmap: 'Mind Map',
+        ocr: 'OCR Scanner',
+        tts: 'Text to Speech',
+        summarizer: 'Text Summarizer',
+        youtube: 'YouTube'
+      };
+
+      const newTab = {
+        _id: `ai-${activeAITool}-${Date.now()}`,
+        title: toolTitles[activeAITool],
+        type: 'ai-tool',
+        toolId: activeAITool
+      };
+
+      if (!openTabs.find(tab => tab.toolId === activeAITool)) {
+        setOpenTabs(prev => [...prev, newTab]);
+        setActiveTabId(newTab._id);
+      } else {
+        const existingTab = openTabs.find(tab => tab.toolId === activeAITool);
+        setActiveTabId(existingTab._id);
+      }
+    }
+  }, [activeAITool]);
+
+  // Update openTabs when notes are updated
+  useEffect(() => {
+    setOpenTabs(prevTabs => 
+      prevTabs.map(tab => {
+        if (!tab.type) { // Only update note tabs
+          const updatedNote = notes.find(note => note._id === tab._id);
+          return updatedNote || tab;
+        }
+        return tab;
+      })
+    );
+  }, [notes]);
+
+  const renderTabContent = (tab) => {
+    if (!tab) return null;
+
+    if (tab.type === 'ai-tool') {
+      const toolComponents = {
+        mindmap: <CreateMindmap onClose={() => closeTab(tab._id)} />,
+        ocr: <OCR onClose={() => closeTab(tab._id)} />,
+        tts: <TextToSpeech onClose={() => closeTab(tab._id)} />,
+        summarizer: <Summarizer onClose={() => closeTab(tab._id)} />,
+        youtube: <YouTube onClose={() => closeTab(tab._id)} />
+      };
+      return (
+        <div className="tab-content">
+          {toolComponents[tab.toolId]}
+        </div>
+      );
+    }
+
+    // Regular note content
+    return (
+      <div className="tab-content">
+        <div className="note-editor">
+          <input
+            type="text"
+            value={tab.title || ''}
+            onChange={(e) => {
+              const updatedNote = { ...tab, title: e.target.value };
+              setCurrentNote(updatedNote);
+              setOpenTabs(prevTabs =>
+                prevTabs.map(t => t._id === tab._id ? updatedNote : t)
+              );
+            }}
+            className="input-field note-title"
+            placeholder="Note title..."
+          />
+          <textarea
+            value={tab.content || ''}
+            onChange={(e) => {
+              const updatedNote = { ...tab, content: e.target.value };
+              setCurrentNote(updatedNote);
+              setOpenTabs(prevTabs =>
+                prevTabs.map(t => t._id === tab._id ? updatedNote : t)
+              );
+            }}
+            className="input-field note-content"
+            placeholder="Start writing..."
+          />
+          <button
+            className="primary-button save-note-btn"
+            onClick={saveNote}
+            disabled={loading}
+          >
+            {loading ? 'Saving...' : 'Save Note'}
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="three-panel-layout">
@@ -344,8 +465,8 @@ const Notes = ({ sidebarVisible }) => {
               <div
                 key={note._id}
                 className={`note-item ${currentNote._id === note._id ? 'active' : ''}`}
-                onClick={() => setCurrentNote(note)}
-                onContextMenu={(e) => handleContextMenu(e, note._id)}
+                                 onClick={() => openNoteInTab(note)}
+                 onContextMenu={(e) => handleContextMenu(e, note._id)}
               >
                 <div className="note-item-content">
                   {editingTitleId === note._id ? (
@@ -406,10 +527,11 @@ const Notes = ({ sidebarVisible }) => {
           className="context-menu"
           style={{ top: contextMenu.y, left: contextMenu.x }}
         >
-          <button onClick={() => {
-            setCurrentNote(notes.find(n => n._id === contextMenu.noteId));
-            closeContextMenu();
-          }}>View</button>
+                     <button onClick={() => {
+             const note = notes.find(n => n._id === contextMenu.noteId);
+             openNoteInTab(note);
+             closeContextMenu();
+           }}>Open in Tab</button>
           <button onClick={() => {
             handleTitleDoubleClick(contextMenu.noteId);
             closeContextMenu();
@@ -450,29 +572,51 @@ const Notes = ({ sidebarVisible }) => {
 
       {/* Main Content */}
       <div className="main-content">
-        {currentNote._id ? (
-          <>
-            <input
-              type="text"
-              value={currentNote.title}
-              onChange={(e) => setCurrentNote({ ...currentNote, title: e.target.value })}
-              className="input-field note-title"
-              placeholder="Note title..."
-            />
-            <textarea
-              value={currentNote.content}
-              onChange={(e) => setCurrentNote({ ...currentNote, content: e.target.value })}
-              className="input-field note-content"
-              placeholder="Start writing..."
-            />
-            <button
-              className="primary-button save-note-btn"
-              onClick={saveNote}
-              disabled={loading}
+        <div className="tabs-container">
+          {openTabs.map(tab => (
+            <div
+              key={tab._id}
+              className={`tab ${activeTabId === tab._id ? 'active' : ''} ${tab.type === 'ai-tool' ? 'ai-tool' : ''}`}
+              onClick={() => {
+                setActiveTabId(tab._id);
+                if (!tab.type) {
+                  setCurrentNote(tab);
+                }
+              }}
             >
-              {loading ? 'Saving...' : 'Save Note'}
-            </button>
-          </>
+              <span className="tab-title">
+                {tab.type === 'ai-tool' ? (
+                  <>
+                    {tab.toolId === 'mindmap' && '🗺️'}
+                    {tab.toolId === 'ocr' && '📷'}
+                    {tab.toolId === 'tts' && '🔊'}
+                    {tab.toolId === 'summarizer' && '📝'}
+                    {tab.toolId === 'youtube' && '▶️'}
+                    {' '}{tab.title}
+                  </>
+                ) : (
+                  tab.title || 'Untitled'
+                )}
+              </span>
+              <button
+                className="close-tab"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  closeTab(tab._id, e);
+                  if (tab.type === 'ai-tool') {
+                    onAIToolSelect(null);
+                  }
+                }}
+                aria-label="Close tab"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {activeTabId ? (
+          renderTabContent(openTabs.find(tab => tab._id === activeTabId))
         ) : (
           <div className="empty-state">
             <div className="empty-state-content">
@@ -488,35 +632,6 @@ const Notes = ({ sidebarVisible }) => {
             </div>
           </div>
         )}
-      </div>
-
-      {/* Right Panel */}
-      <div className="right-panel">
-        <div className="right-panel-header">
-          <h2>AI Tools</h2>
-        </div>
-        <div className="right-panel-content">
-          <div className="ai-tools-tabs">
-            {[
-              { id: 'mindmap', label: 'Mind Map', icon: '🗺️' },
-              { id: 'ocr', label: 'OCR Scanner', icon: '📷' },
-              { id: 'tts', label: 'Text to Speech', icon: '🔊' },
-              { id: 'summarizer', label: 'Summarizer', icon: '📝' },
-              { id: 'youtube', label: 'YouTube', icon: '▶️' }
-            ].map(tool => (
-              <React.Fragment key={tool.id}>
-                <button
-                  className={`ai-tool-button ${activeAITool === tool.id ? 'active' : ''}`}
-                  onClick={() => handleAIToolClick(tool.id)}
-                >
-                  <span className="tool-icon">{tool.icon}</span>
-                  {tool.label}
-                </button>
-                {activeAITool === tool.id && renderAITool()}
-              </React.Fragment>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );

@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Notes from './Notes';
+import Navigation from './Navigation';
 import './Dashboard.css';
 
 const Dashboard = () => {
   const { currentUser, logout } = useAuth();
   const [isDarkTheme, setIsDarkTheme] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [activeFeature, setActiveFeature] = useState('notes');
+  const [activeAITool, setActiveAITool] = useState(null);
 
   useEffect(() => {
     document.body.classList.toggle('dark-theme', isDarkTheme);
@@ -14,6 +17,10 @@ const Dashboard = () => {
 
   const toggleSidebar = () => {
     setSidebarVisible(!sidebarVisible);
+  };
+
+  const handleAIToolSelect = (toolId) => {
+    setActiveAITool(activeAITool === toolId ? null : toolId);
   };
 
   return (
@@ -32,6 +39,13 @@ const Dashboard = () => {
         </div>
       </div>
 
+      <Navigation 
+        onFeatureSelect={setActiveFeature}
+        activeFeature={activeFeature}
+        onAIToolSelect={handleAIToolSelect}
+        activeAITool={activeAITool}
+      />
+
       {/* Sidebar Toggle Button */}
       <button
         className={`sidebar-toggle ${!sidebarVisible ? 'collapsed' : ''}`}
@@ -42,7 +56,11 @@ const Dashboard = () => {
       </button>
 
       <div className="feature-content">
-        <Notes sidebarVisible={sidebarVisible} />
+        <Notes 
+          sidebarVisible={sidebarVisible} 
+          activeAITool={activeAITool}
+          onAIToolSelect={handleAIToolSelect}
+        />
       </div>
     </div>
   );

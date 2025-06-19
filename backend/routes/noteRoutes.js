@@ -8,6 +8,7 @@ const {
   deleteNote,
   searchNotes,
   shareNote,
+  getNotesByFolder,
 } = require('../controllers/noteController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -19,5 +20,6 @@ router
   .put(protect, updateNote)
   .delete(protect, deleteNote);
 router.route('/:id/share').post(protect, shareNote);
+router.route('/folder/:folderId').get(protect, getNotesByFolder);
 
 module.exports = router; 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { createNote, updateNote, getNotes, deleteNote } from '../utils/api';
 import TextToSpeech from './TextToSpeech';
@@ -6,6 +6,58 @@ import Summarizer from './Summarizer';
 import OCR from './OCR';
 import YouTube from './YouTube';
 import CreateMindmap from './CreateMindmap';
+import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
+
+// Folder component
+const Folder = ({ folder, notes, onToggle, isOpen, onDrop }) => {
+  const [{ isOver }, drop] = useDrop({
+    accept: 'note',
+    drop: (item) => onDrop(item.note, folder.id),
+    collect: monitor => ({
+      isOver: !!monitor.isOver(),
+    }),
+  });
+
+  return (
+    <div ref={drop} className={`folder ${isOver ? 'drag-over' : ''}`}>
+      <div className="folder-header" onClick={() => onToggle(folder.id)}>
+        <span className="folder-icon">{isOpen ? '📂' : '📁'}</span>
+        <span className="folder-name">{folder.name}</span>
+        <span className="note-count">({notes.length})</span>
+      </div>
+      {isOpen && (
+        <div className="folder-content">
+          {notes.map(note => (
+            <DraggableNote key={note._id} note={note} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Draggable Note component
+const DraggableNote = ({ note }) => {
+  const [{ isDragging }, drag] = useDrag({
+    type: 'note',
+    item: { type: 'note', note },
+    collect: monitor => ({
+      isDragging: !!monitor.isDragging(),
+    }),
+  });
+
+  return (
+    <div
+      ref={drag}
+      className={`note-item ${isDragging ? 'dragging' : ''}`}
+      style={{ opacity: isDragging ? 0.5 : 1 }}
+    >
+      <span className="note-icon">📝</span>
+      <span className="note-title">{note.title || 'Untitled'}</span>
+    </div>
+  );
+};
 
 const Notes = ({ sidebarVisible, activeAITool, onAIToolSelect }) => {
   const { token } = useAuth();
@@ -21,6 +73,13 @@ const Notes = ({ sidebarVisible, activeAITool, onAIToolSelect }) => {
   const [deleteConfirmation, setDeleteConfirmation] = useState({ show: false, noteId: null });
   const [editingTitleId, setEditingTitleId] = useState(null);
   const titleInputRef = useRef(null);
+  const [folders, setFolders] = useState([
+    { id: 'default', name: 'All Notes', isDefault: true },
+    { id: 'unorganized', name: 'Unorganized', isDefault: true }
+  ]);
+  const [openFolders, setOpenFolders] = useState(['default']);
+  const [showNewFolderInput, setShowNewFolderInput] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
 
   useEffect(() => {
     const fetchNotes = async () => {
@@ -422,103 +481,124 @@ const Notes = ({ sidebarVisible, activeAITool, onAIToolSelect }) => {
     );
   };
 
+  // Create new folder
+  const createNewFolder = () => {
+    if (newFolderName.trim()) {
+      const newFolder = {
+        id: `folder-${Date.now()}`,
+        name: newFolderName.trim(),
+        isDefault: false
+      };
+      setFolders([...folders, newFolder]);
+      setOpenFolders([...openFolders, newFolder.id]);
+      setNewFolderName('');
+      setShowNewFolderInput(false);
+    }
+  };
+
+  // Handle note drop into folder
+  const handleNoteDrop = async (note, folderId) => {
+    try {
+      const updatedNote = { ...note, folderId };
+      // Update note in database
+      await updateNote(note._id, { folderId }, token);
+      // Update local state
+      setNotes(prevNotes => 
+        prevNotes.map(n => n._id === note._id ? updatedNote : n)
+      );
+    } catch (error) {
+      console.error('Error moving note:', error);
+      setError('Failed to move note');
+    }
+  };
+
+  // Toggle folder open/closed
+  const toggleFolder = (folderId) => {
+    setOpenFolders(prev => 
+      prev.includes(folderId)
+        ? prev.filter(id => id !== folderId)
+        : [...prev, folderId]
+    );
+  };
+
+  // Group notes by folder
+  const notesByFolder = useCallback(() => {
+    const grouped = new Map(folders.map(f => [f.id, []]));
+    notes.forEach(note => {
+      const folderId = note.folderId || 'unorganized';
+      if (grouped.has(folderId)) {
+        grouped.get(folderId).push(note);
+      } else {
+        grouped.get('unorganized').push(note);
+      }
+    });
+    return grouped;
+  }, [notes, folders]);
+
+  // Render sidebar content
+  const renderSidebarContent = () => (
+    <div className="sidebar-content">
+      <div className="sidebar-header">
+        <h2>Notes</h2>
+        <div className="sidebar-actions">
+          <button
+            className="icon-button"
+            onClick={() => setShowNewFolderInput(true)}
+            title="New Folder"
+          >
+            📁+
+          </button>
+          <button
+            className="icon-button"
+            onClick={createNewNote}
+            disabled={loading}
+            title="New Note"
+          >
+            📝+
+          </button>
+        </div>
+      </div>
+
+      {showNewFolderInput && (
+        <div className="new-folder-input">
+          <input
+            type="text"
+            value={newFolderName}
+            onChange={(e) => setNewFolderName(e.target.value)}
+            placeholder="Folder name..."
+            autoFocus
+            onKeyPress={(e) => e.key === 'Enter' && createNewFolder()}
+          />
+          <button onClick={createNewFolder}>Create</button>
+          <button onClick={() => {
+            setShowNewFolderInput(false);
+            setNewFolderName('');
+          }}>Cancel</button>
+        </div>
+      )}
+
+      <DndProvider backend={HTML5Backend}>
+        <div className="folders-list">
+          {folders.map(folder => (
+            <Folder
+              key={folder.id}
+              folder={folder}
+              notes={notesByFolder().get(folder.id) || []}
+              isOpen={openFolders.includes(folder.id)}
+              onToggle={toggleFolder}
+              onDrop={handleNoteDrop}
+            />
+          ))}
+        </div>
+      </DndProvider>
+    </div>
+  );
+
   return (
     <div className="three-panel-layout">
       {/* Left Sidebar */}
       <div className={`left-sidebar ${sidebarVisible ? 'visible' : ''}`}>
-        <div className="sidebar-content">
-          <button
-            className="primary-button"
-            onClick={createNewNote}
-            disabled={loading || !token}
-          >
-            {loading ? 'Creating...' : '+ New Note'}
-          </button>
-
-          {error && (
-            <div className="error-message">
-              {error}
-            </div>
-          )}
-
-          <div className="search-and-sort">
-            <input
-              type="text"
-              placeholder="Search notes..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-            />
-            <select
-              value={sortOption}
-              onChange={(e) => setSortOption(e.target.value)}
-              className="sort-select"
-            >
-              <option value="lastEdited">Last edited</option>
-              <option value="created">Recently created</option>
-              <option value="alphabetical">Alphabetical</option>
-            </select>
-          </div>
-
-          <div className="notes-list">
-            {filteredNotes.map(note => (
-              <div
-                key={note._id}
-                className={`note-item ${currentNote._id === note._id ? 'active' : ''}`}
-                                 onClick={() => openNoteInTab(note)}
-                 onContextMenu={(e) => handleContextMenu(e, note._id)}
-              >
-                <div className="note-item-content">
-                  {editingTitleId === note._id ? (
-                    <input
-                      ref={titleInputRef}
-                      type="text"
-                      defaultValue={note.title}
-                      className="edit-title-input"
-                      onBlur={(e) => handleTitleSave(note._id, e.target.value)}
-                      onKeyDown={(e) => handleTitleKeyDown(e, note._id, e.target.value)}
-                    />
-                  ) : (
-                    <h3 onDoubleClick={() => handleTitleDoubleClick(note._id, note.title)}>
-                      {note.isPinned && <span className="pin-icon">📌</span>}
-                      {note.title || 'Untitled Note'}
-                    </h3>
-                  )}
-                  <p className="note-preview">
-                    {note.content.substring(0, 100)}...
-                  </p>
-                  <div className="note-meta">
-                    {new Date(note.updatedAt || note.createdAt).toLocaleDateString()}
-                  </div>
-                </div>
-                <div className="note-actions">
-                  <button
-                    className="pin-note-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      togglePinNote(note._id);
-                    }}
-                    aria-label={note.isPinned ? "Unpin note" : "Pin note"}
-                  >
-                    {note.isPinned ? '📌' : '📍'}
-                  </button>
-                  <button
-                    className="delete-note-btn"
-                    onClick={(e) => handleDeleteClick(e, note._id)}
-                    aria-label="Delete note"
-                  >
-                    🗑️
-                  </button>
-                </div>
-              </div>
-            ))}
-            {filteredNotes.length === 0 && (
-              <div className="empty-state">
-                {searchTerm ? 'No matching notes found' : 'No notes yet. Create one!'}
-              </div>
-            )}
-          </div>
-        </div>
+        {renderSidebarContent()}
       </div>
 
       {/* Context Menu */}

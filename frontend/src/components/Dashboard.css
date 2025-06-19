@@ -1785,3 +1785,147 @@ textarea {
   flex-direction: column;
   gap: 1rem;
 }
+
+/* Folder styles */
+.folders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+
+.folder {
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.folder.drag-over {
+  background: var(--hover-bg);
+  box-shadow: 0 0 0 2px var(--primary);
+}
+
+.folder-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.folder-header:hover {
+  background: var(--hover-bg);
+}
+
+.folder-icon {
+  font-size: 1.2rem;
+}
+
+.folder-name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.note-count {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.folder-content {
+  padding-left: 1.5rem;
+  margin-top: 0.25rem;
+}
+
+/* Note item styles */
+.note-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  cursor: move;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  margin: 0.25rem 0;
+}
+
+.note-item:hover {
+  background: var(--hover-bg);
+}
+
+.note-item.dragging {
+  opacity: 0.5;
+  background: var(--hover-bg);
+}
+
+.note-icon {
+  font-size: 1rem;
+  opacity: 0.7;
+}
+
+/* Sidebar header and actions */
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.icon-button {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.icon-button:hover {
+  background: var(--hover-bg);
+}
+
+/* New folder input */
+.new-folder-input {
+  padding: 0.75rem;
+  display: flex;
+  gap: 0.5rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.new-folder-input input {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--background);
+}
+
+.new-folder-input button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  background: var(--primary);
+  color: white;
+  transition: all 0.2s ease;
+}
+
+.new-folder-input button:last-child {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.new-folder-input button:hover {
+  opacity: 0.9;
+}

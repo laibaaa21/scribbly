@@ -51,28 +51,37 @@ const createNote = asyncHandler(async (req, res) => {
 // @route   PUT /api/notes/:id
 // @access  Private
 const updateNote = asyncHandler(async (req, res) => {
-  const { title, content, tags, isArchived, isPinned, color } = req.body;
-
   const note = await Note.findById(req.params.id);
 
-  if (note && (note.user.toString() === req.user._id.toString() || 
-    note.collaborators.some(collab => 
-      collab.user.toString() === req.user._id.toString() && 
-      ['write', 'admin'].includes(collab.permission)))) {
-    
-    note.title = title || note.title;
-    note.content = content || note.content;
-    note.tags = tags || note.tags;
-    note.isArchived = isArchived !== undefined ? isArchived : note.isArchived;
-    note.isPinned = isPinned !== undefined ? isPinned : note.isPinned;
-    note.color = color || note.color;
-
-    const updatedNote = await note.save();
-    res.json(updatedNote);
-  } else {
+  if (!note) {
     res.status(404);
-    throw new Error('Note not found or not authorized to update');
+    throw new Error('Note not found');
   }
+
+  // Check for user
+  if (!req.user) {
+    res.status(401);
+    throw new Error('User not found');
+  }
+
+  // Make sure the logged in user matches the note user
+  if (note.user.toString() !== req.user.id) {
+    res.status(401);
+    throw new Error('User not authorized');
+  }
+
+  const updatedNote = await Note.findByIdAndUpdate(
+    req.params.id,
+    {
+      title: req.body.title !== undefined ? req.body.title : note.title,
+      content: req.body.content !== undefined ? req.body.content : note.content,
+      folderId: req.body.folderId !== undefined ? req.body.folderId : note.folderId,
+      updatedAt: Date.now()
+    },
+    { new: true }
+  );
+
+  res.status(200).json(updatedNote);
 });
 
 // @desc    Delete a note
@@ -149,6 +158,18 @@ const shareNote = asyncHandler(async (req, res) => {
   res.json(updatedNote);
 });
 
+// @desc    Get notes by folder
+// @route   GET /api/notes/folder/:folderId
+// @access  Private
+const getNotesByFolder = asyncHandler(async (req, res) => {
+  const notes = await Note.find({
+    user: req.user.id,
+    folderId: req.params.folderId
+  }).sort({ updatedAt: -1 });
+
+  res.status(200).json(notes);
+});
+
 module.exports = {
   getNotes,
   getNoteById,
@@ -157,4 +178,5 @@ module.exports = {
   deleteNote,
   searchNotes,
   shareNote,
+  getNotesByFolder,
 }; 

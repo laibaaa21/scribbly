@@ -149,6 +149,7 @@ const Notes = ({ sidebarVisible, activeAITool, onAIToolSelect }) => {
   const [sortType, setSortType] = useState(
     localStorage.getItem('notesSortType') || SORT_TYPES.RECENT_EDITED
   );
+  const [notifications, setNotifications] = useState([]);
   const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0, noteId: null });
   const [deleteConfirmation, setDeleteConfirmation] = useState({ show: false, noteId: null });
   const [editingTitleId, setEditingTitleId] = useState(null);
@@ -182,7 +183,31 @@ const Notes = ({ sidebarVisible, activeAITool, onAIToolSelect }) => {
     localStorage.setItem('notesSortType', sortType);
   }, [sortType]);
 
-  // Sort notes function
+  // Show notification function
+  const showNotification = useCallback((message, type = 'success') => {
+    const id = Date.now();
+    setNotifications(prev => [...prev, { id, message, type }]);
+    
+    // Auto-remove notification after 3 seconds
+    setTimeout(() => {
+      setNotifications(prev => {
+        const notification = prev.find(n => n.id === id);
+        if (notification) {
+          const element = document.getElementById(`notification-${id}`);
+          if (element) {
+            element.classList.add('fade-out');
+            // Remove after animation completes
+            setTimeout(() => {
+              setNotifications(prev => prev.filter(n => n.id !== id));
+            }, 300);
+          }
+        }
+        return prev;
+      });
+    }, 3000);
+  }, []);
+
+  // Sort notes function - updated to handle pinned notes
   const sortNotes = useCallback((notesToSort) => {
     const pinnedNotes = notesToSort.filter(note => note.isPinned);
     const unpinnedNotes = notesToSort.filter(note => !note.isPinned);
@@ -190,7 +215,7 @@ const Notes = ({ sidebarVisible, activeAITool, onAIToolSelect }) => {
     const applySorting = (notes) => {
       switch (sortType) {
         case SORT_TYPES.ALPHABETICAL:
-          return [...notes].sort((a, b) => a.title.localeCompare(b.title));
+          return [...notes].sort((a, b) => (a.title || '').localeCompare(b.title || ''));
         case SORT_TYPES.RECENT_CREATED:
           return [...notes].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         case SORT_TYPES.RECENT_EDITED:
@@ -200,6 +225,7 @@ const Notes = ({ sidebarVisible, activeAITool, onAIToolSelect }) => {
       }
     };
 
+    // Sort each group separately and combine
     return [...applySorting(pinnedNotes), ...applySorting(unpinnedNotes)];
   }, [sortType]);
 
@@ -247,29 +273,20 @@ const Notes = ({ sidebarVisible, activeAITool, onAIToolSelect }) => {
     try {
       setLoading(true);
       setError('');
-
-      const updatedNote = await updateNote(currentNote._id, {
-        title: currentNote.title,
-        content: currentNote.content
-      }, token);
-
-      // Update notes list
-      setNotes(prevNotes => prevNotes.map(note =>
-        note._id === updatedNote._id ? updatedNote : note
-      ));
-
-      // Update current note with server response
-      setCurrentNote(updatedNote);
-
-      // Update the tab content
-      setOpenTabs(prevTabs => 
-        prevTabs.map(tab =>
-          tab._id === updatedNote._id ? updatedNote : tab
-        )
-      );
+      const updatedNote = await updateNote(currentNote._id, currentNote, token);
+      
+      setNotes(prevNotes => {
+        const newNotes = prevNotes.map(note => 
+          note._id === updatedNote._id ? updatedNote : note
+        );
+        return sortNotes(newNotes);
+      });
+      
+      showNotification('Note saved successfully!');
     } catch (error) {
       console.error('Error saving note:', error);
       setError(error.message || 'Failed to save note');
+      showNotification('Failed to save note', 'error');
     } finally {
       setLoading(false);
     }
@@ -350,36 +367,20 @@ const Notes = ({ sidebarVisible, activeAITool, onAIToolSelect }) => {
 
   const handlePinNote = async (note) => {
     try {
-      const updatedNote = await updateNote(note._id, {
-        isPinned: !note.isPinned
-      }, token);
-
-      // Update notes list
+      const updatedNote = { ...note, isPinned: !note.isPinned };
+      const savedNote = await updateNote(note._id, updatedNote, token);
+      
       setNotes(prevNotes => {
-        const newNotes = prevNotes.map(n =>
-          n._id === updatedNote._id ? updatedNote : n
+        const newNotes = prevNotes.map(n => 
+          n._id === savedNote._id ? savedNote : n
         );
-        // Re-sort to move pinned notes to top
-        return [...newNotes].sort((a, b) => {
-          if (a.isPinned === b.isPinned) {
-            return new Date(b.updatedAt) - new Date(a.updatedAt);
-          }
-          return b.isPinned ? -1 : 1;
-        });
+        return sortNotes(newNotes);
       });
-
-      // Update current note if it's the same
-      if (currentNote?._id === updatedNote._id) {
-        setCurrentNote(updatedNote);
-      }
-
-      // Update open tabs
-      setOpenTabs(prevTabs => prevTabs.map(tab =>
-        tab._id === updatedNote._id ? { ...tab, isPinned: updatedNote.isPinned } : tab
-      ));
+      
+      showNotification(savedNote.isPinned ? 'Note pinned successfully!' : 'Note unpinned successfully!');
     } catch (error) {
-      console.error('Error updating note pin status:', error);
-      setError('Failed to update note pin status');
+      console.error('Error updating pin status:', error);
+      showNotification('Failed to update pin status', 'error');
     }
   };
 
@@ -637,24 +638,26 @@ const Notes = ({ sidebarVisible, activeAITool, onAIToolSelect }) => {
 
   // Handle note deletion
   const handleDeleteNote = async (note) => {
+    if (!note._id || !token) {
+      console.error('Cannot delete note: missing note ID or token');
+      setError('Unable to delete note');
+      return;
+    }
+
     try {
+      setLoading(true);
+      setError('');
       await deleteNote(note._id, token);
-
-      // Remove from notes list
+      
       setNotes(prevNotes => prevNotes.filter(n => n._id !== note._id));
-
-      // Close tab if open
-      if (openTabs.some(tab => tab._id === note._id)) {
-        closeTab(note._id);
-      }
-
-      // Clear current note if it's the deleted one
-      if (currentNote?._id === note._id) {
-        setCurrentNote(null);
-      }
+      closeTab(note._id);
+      showNotification('Note deleted successfully!');
     } catch (error) {
       console.error('Error deleting note:', error);
-      setError('Failed to delete note');
+      setError(error.message || 'Failed to delete note');
+      showNotification('Failed to delete note', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -849,6 +852,19 @@ const Notes = ({ sidebarVisible, activeAITool, onAIToolSelect }) => {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Notification Container */}
+      <div className="notification-container">
+        {notifications.map(({ id, message, type }) => (
+          <div
+            key={id}
+            id={`notification-${id}`}
+            className={`notification ${type}`}
+          >
+            {type === 'success' ? '✓' : '⚠'} {message}
+          </div>
+        ))}
       </div>
     </div>
   );

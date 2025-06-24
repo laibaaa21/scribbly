@@ -1,20 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useAITools } from '../contexts/AIToolsContext';
 import './Summarizer.css';
 
 const Summarizer = () => {
-  const [text, setText] = useState('');
-  const [summary, setSummary] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingModels, setIsLoadingModels] = useState(true);
-  const [error, setError] = useState('');
-  const [compressionLevel, setCompressionLevel] = useState(0.5);
-  const [selectedModel, setSelectedModel] = useState('');
-  const [availableModels, setAvailableModels] = useState([]);
-  const [copyStatus, setCopyStatus] = useState('');
   const { token, currentUser } = useAuth();
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
+  const {
+    summarizerState,
+    setSummarizerState,
+    resetSummarizer
+  } = useAITools();
+
   const speechSynthesisRef = useRef(null);
   const utteranceRef = useRef(null);
 
@@ -22,9 +18,12 @@ const Summarizer = () => {
     if (token && currentUser) {
       fetchAvailableModels();
     } else {
-      setIsLoadingModels(false);
-      setAvailableModels([]);
-      setSelectedModel('');
+      setSummarizerState(prev => ({
+        ...prev,
+        isLoadingModels: false,
+        availableModels: [],
+        selectedModel: ''
+      }));
     }
   }, [token, currentUser]);
 
@@ -37,13 +36,19 @@ const Summarizer = () => {
   }, []);
 
   const fetchAvailableModels = async () => {
-    setIsLoadingModels(true);
-    setError('');
+    setSummarizerState(prev => ({
+      ...prev,
+      isLoadingModels: true,
+      error: ''
+    }));
 
     if (!token) {
       console.error('No authentication token available');
-      setError('Please log in to access the summarizer');
-      setIsLoadingModels(false);
+      setSummarizerState(prev => ({
+        ...prev,
+        error: 'Please log in to access the summarizer',
+        isLoadingModels: false
+      }));
       return;
     }
 
@@ -60,8 +65,11 @@ const Summarizer = () => {
       const response = await fetch('http://localhost:8000/summarizer/models', requestConfig);
       
       if (response.status === 401) {
-        setError('Your session has expired. Please log in again.');
-        setIsLoadingModels(false);
+        setSummarizerState(prev => ({
+          ...prev,
+          error: 'Your session has expired. Please log in again.',
+          isLoadingModels: false
+        }));
         return;
       }
       
@@ -74,31 +82,47 @@ const Summarizer = () => {
       
       if (!Array.isArray(models) || models.length === 0) {
         console.warn('No models available for your subscription tier');
-        setError('No summarization models are available for your subscription tier');
-        setAvailableModels([]);
+        setSummarizerState(prev => ({
+          ...prev,
+          error: 'No summarization models are available for your subscription tier',
+          availableModels: [],
+          isLoadingModels: false
+        }));
       } else {
-        setAvailableModels(models);
-        setSelectedModel(models[0].id);
-        setError('');
+        setSummarizerState(prev => ({
+          ...prev,
+          availableModels: models,
+          selectedModel: models[0].id,
+          error: '',
+          isLoadingModels: false
+        }));
       }
     } catch (err) {
       console.error('Error fetching models:', err);
-      setError(err.message || 'Failed to load available models');
-      setAvailableModels([]);
-    } finally {
-      setIsLoadingModels(false);
+      setSummarizerState(prev => ({
+        ...prev,
+        error: err.message || 'Failed to load available models',
+        availableModels: [],
+        isLoadingModels: false
+      }));
     }
   };
 
   const handleSummarize = async () => {
-    if (!text.trim() || !selectedModel) {
-      setError('Please enter text and select a model to summarize.');
+    if (!summarizerState.inputText.trim() || !summarizerState.selectedModel) {
+      setSummarizerState(prev => ({
+        ...prev,
+        error: 'Please enter text and select a model to summarize.'
+      }));
       return;
     }
 
-    setError('');
-    setIsLoading(true);
-    setSummary('');
+    setSummarizerState(prev => ({
+      ...prev,
+      error: '',
+      isProcessing: true,
+      summary: ''
+    }));
 
     try {
       const response = await fetch('http://localhost:8000/summarizer/', {
@@ -109,9 +133,9 @@ const Summarizer = () => {
           'Accept': 'application/json'
         },
         body: JSON.stringify({
-          text: text.trim(),
-          compression_ratio: compressionLevel,
-          model: selectedModel
+          text: summarizerState.inputText.trim(),
+          compression_ratio: summarizerState.compressionLevel || 0.5,
+          model: summarizerState.selectedModel
         })
       });
 
@@ -121,77 +145,112 @@ const Summarizer = () => {
       }
 
       const result = await response.json();
-      setSummary(result.summary);
+      setSummarizerState(prev => ({
+        ...prev,
+        summary: result.summary,
+        isProcessing: false
+      }));
     } catch (err) {
       console.error('Summarization error:', err);
-      setError(err.message || 'Failed to summarize text. Please try again.');
-    } finally {
-      setIsLoading(false);
+      setSummarizerState(prev => ({
+        ...prev,
+        error: err.message || 'Failed to summarize text. Please try again.',
+        isProcessing: false
+      }));
     }
   };
 
   const handleCopy = async () => {
-    if (!summary) return;
+    if (!summarizerState.summary) return;
 
     try {
-      await navigator.clipboard.writeText(summary);
-      setCopyStatus('Copied!');
-      setTimeout(() => setCopyStatus(''), 2000);
+      await navigator.clipboard.writeText(summarizerState.summary);
+      setSummarizerState(prev => ({ ...prev, copyStatus: 'Copied!' }));
+      setTimeout(() => {
+        setSummarizerState(prev => ({ ...prev, copyStatus: '' }));
+      }, 2000);
     } catch (err) {
       console.error('Failed to copy text:', err);
-      setCopyStatus('Failed to copy');
+      setSummarizerState(prev => ({ ...prev, copyStatus: 'Failed to copy' }));
     }
   };
 
   const handleSpeak = async () => {
-    if (!summary) return;
+    if (!summarizerState.summary) return;
 
     try {
-      if (isSpeaking && isPaused) {
+      if (summarizerState.isSpeaking && summarizerState.isPaused) {
         // Resume paused speech
         window.speechSynthesis.resume();
-        setIsPaused(false);
+        setSummarizerState(prev => ({ ...prev, isPaused: false }));
         return;
       }
 
-      if (isSpeaking) {
+      if (summarizerState.isSpeaking) {
         // Pause ongoing speech
         window.speechSynthesis.pause();
-        setIsPaused(true);
+        setSummarizerState(prev => ({ ...prev, isPaused: true }));
         return;
       }
 
       // Start new speech
       window.speechSynthesis.cancel(); // Cancel any previous speech
-      const utterance = new SpeechSynthesisUtterance(summary);
+      const utterance = new SpeechSynthesisUtterance(summarizerState.summary);
       utteranceRef.current = utterance;
       speechSynthesisRef.current = window.speechSynthesis;
 
       utterance.onend = () => {
-        setIsSpeaking(false);
-        setIsPaused(false);
+        setSummarizerState(prev => ({
+          ...prev,
+          isSpeaking: false,
+          isPaused: false
+        }));
         speechSynthesisRef.current = null;
         utteranceRef.current = null;
       };
 
       utterance.onerror = (event) => {
         console.error('Speech synthesis error:', event);
-        setError('Failed to play speech. Please try again.');
-        setIsSpeaking(false);
-        setIsPaused(false);
+        setSummarizerState(prev => ({
+          ...prev,
+          error: 'Failed to play speech. Please try again.',
+          isSpeaking: false,
+          isPaused: false
+        }));
         speechSynthesisRef.current = null;
         utteranceRef.current = null;
       };
 
-      setIsSpeaking(true);
-      setIsPaused(false);
+      setSummarizerState(prev => ({
+        ...prev,
+        isSpeaking: true,
+        isPaused: false
+      }));
       window.speechSynthesis.speak(utterance);
     } catch (err) {
       console.error('Text-to-speech error:', err);
-      setError('Failed to initialize speech synthesis');
-      setIsSpeaking(false);
-      setIsPaused(false);
+      setSummarizerState(prev => ({
+        ...prev,
+        error: 'Failed to initialize speech synthesis',
+        isSpeaking: false,
+        isPaused: false
+      }));
     }
+  };
+
+  const handleInputChange = (e) => {
+    setSummarizerState(prev => ({ ...prev, inputText: e.target.value }));
+  };
+
+  const handleModelChange = (e) => {
+    setSummarizerState(prev => ({ ...prev, selectedModel: e.target.value }));
+  };
+
+  const handleCompressionChange = (e) => {
+    setSummarizerState(prev => ({
+      ...prev,
+      compressionLevel: parseFloat(e.target.value)
+    }));
   };
 
   return (
@@ -205,12 +264,14 @@ const Summarizer = () => {
         </div>
       </div>
 
-      {error && <div className="summarizer-error">{error}</div>}
+      {summarizerState.error && (
+        <div className="summarizer-error">{summarizerState.error}</div>
+      )}
 
       <div className="summarizer-input-container">
         <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
+          value={summarizerState.inputText}
+          onChange={handleInputChange}
           placeholder="Enter text to summarize..."
           className="summarizer-textarea"
           rows={8}
@@ -219,7 +280,7 @@ const Summarizer = () => {
         <div className="summarizer-controls">
           <div className="model-control">
             <label className="model-label">Select Model:</label>
-            {isLoadingModels ? (
+            {summarizerState.isLoadingModels ? (
               <div className="model-loading">
                 <span className="spinner"></span>
                 Loading models...
@@ -227,13 +288,13 @@ const Summarizer = () => {
             ) : (
               <>
                 <select
-                  value={selectedModel}
-                  onChange={(e) => setSelectedModel(e.target.value)}
+                  value={summarizerState.selectedModel}
+                  onChange={handleModelChange}
                   className="model-select"
-                  disabled={isLoadingModels}
+                  disabled={summarizerState.isLoadingModels}
                 >
                   <option value="">Select a model</option>
-                  {availableModels.map((model) => (
+                  {summarizerState.availableModels?.map((model) => (
                     <option key={model.id} value={model.id}>
                       {model.name} - {model.description}
                     </option>
@@ -249,66 +310,80 @@ const Summarizer = () => {
           </div>
 
           <div className="compression-control">
-            <label htmlFor="compression-range">
-              Summary Length: {Math.round(compressionLevel * 100)}%
+            <label>
+              Compression Level:
+              <input
+                type="range"
+                min="0.1"
+                max="0.9"
+                step="0.1"
+                value={summarizerState.compressionLevel || 0.5}
+                onChange={handleCompressionChange}
+                className="compression-slider"
+              />
+              <span>{(summarizerState.compressionLevel || 0.5) * 100}%</span>
             </label>
-            <input
-              id="compression-range"
-              type="range"
-              min="0.1"
-              max="0.9"
-              step="0.1"
-              value={compressionLevel}
-              onChange={(e) => setCompressionLevel(parseFloat(e.target.value))}
-              className="summarizer-range"
-            />
           </div>
 
-          <button
-            onClick={handleSummarize}
-            disabled={isLoading || !text.trim() || !selectedModel || isLoadingModels}
-            className="summarizer-button primary"
-          >
-            {isLoading ? (
-              <>
-                <span className="spinner"></span>
-                Summarizing...
-              </>
-            ) : (
-              'Summarize'
-            )}
-          </button>
-        </div>
-      </div>
+          <div className="action-buttons">
+            <button
+              onClick={handleSummarize}
+              disabled={summarizerState.isProcessing || !summarizerState.inputText.trim()}
+              className="summarize-button"
+            >
+              {summarizerState.isProcessing ? (
+                <>
+                  <span className="spinner"></span>
+                  Summarizing...
+                </>
+              ) : (
+                <>
+                  <span className="tool-icon">📝</span>
+                  Summarize
+                </>
+              )}
+            </button>
 
-      {summary && (
-        <div className="summary-result">
-          <div className="summary-header">
-            <h3>Summary</h3>
-            <div className="summary-actions">
-              <button
-                onClick={handleSpeak}
-                disabled={!summary}
-                className="summarizer-button secondary"
-                title={isSpeaking ? (isPaused ? 'Resume' : 'Pause') : 'Listen to summary'}
-              >
-                {isSpeaking ? (
-                  isPaused ? '▶️ Resume' : '⏸️ Pause'
-                ) : '🔊 Listen'}
-              </button>
-              <button
-                onClick={handleCopy}
-                className={`summarizer-button secondary ${copyStatus ? 'copied' : ''}`}
-              >
-                {copyStatus || 'Copy'}
-              </button>
+            <button onClick={resetSummarizer} className="reset-button">
+              <span className="tool-icon">🔄</span>
+              Reset
+            </button>
+          </div>
+        </div>
+
+        {summarizerState.summary && (
+          <div className="summary-result">
+            <div className="summary-header">
+              <h3>Summary</h3>
+              <div className="summary-actions">
+                <button
+                  onClick={handleCopy}
+                  className={`copy-button ${summarizerState.copyStatus === 'Copied!' ? 'copied' : ''}`}
+                >
+                  <span className="tool-icon">📋</span>
+                  {summarizerState.copyStatus || 'Copy'}
+                </button>
+                <button
+                  onClick={handleSpeak}
+                  className="speak-button"
+                >
+                  <span className="tool-icon">
+                    {summarizerState.isSpeaking
+                      ? summarizerState.isPaused ? '▶️' : '⏸️'
+                      : '🔊'}
+                  </span>
+                  {summarizerState.isSpeaking
+                    ? summarizerState.isPaused ? 'Resume' : 'Pause'
+                    : 'Speak'}
+                </button>
+              </div>
+            </div>
+            <div className="summary-text">
+              {summarizerState.summary}
             </div>
           </div>
-          <div className="summary-content">
-            {summary}
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

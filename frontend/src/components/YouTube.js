@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useAITools } from '../contexts/AIToolsContext';
 import './YouTube.css';
 
 const YouTube = () => {
-  const [keywords, setKeywords] = useState('');
-  const [results, setResults] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
   const { token } = useAuth();
+  const {
+    youtubeState,
+    setYoutubeState,
+    resetYoutube
+  } = useAITools();
 
   // Fallback videos in case API fails
   const fallbackVideos = [
@@ -45,13 +47,19 @@ const YouTube = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!keywords.trim()) {
-      setError('Please enter keywords to search');
+    if (!youtubeState.keywords?.trim()) {
+      setYoutubeState(prev => ({
+        ...prev,
+        error: 'Please enter keywords to search'
+      }));
       return;
     }
 
-    setIsLoading(true);
-    setError('');
+    setYoutubeState(prev => ({
+      ...prev,
+      isProcessing: true,
+      error: ''
+    }));
 
     try {
       const response = await fetch('http://localhost:8000/YtSuggestion', {
@@ -61,7 +69,7 @@ const YouTube = () => {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          query: keywords,
+          query: youtubeState.keywords,
           max_results: 5
         })
       });
@@ -81,78 +89,77 @@ const YouTube = () => {
         thumbnail: `https://i.ytimg.com/vi/${data.video_links[index].split('v=')[1]}/hqdefault.jpg`
       }));
 
-      setResults(videoResults);
+      setYoutubeState(prev => ({
+        ...prev,
+        results: videoResults,
+        isProcessing: false
+      }));
     } catch (err) {
       console.error('Error fetching videos:', err);
-      setError(err.message || 'Failed to fetch videos. Please try again.');
-      setResults([]);
-    } finally {
-      setIsLoading(false);
+      setYoutubeState(prev => ({
+        ...prev,
+        error: err.message || 'Failed to fetch videos. Please try again.',
+        results: [],
+        isProcessing: false
+      }));
     }
   };
 
-  // Generate mock YouTube results for development testing
-  const generateMockResults = (query) => {
-    const mockVideos = [
-      {
-        title: `${query} Tutorial - Comprehensive Guide`,
-        url: "https://www.youtube.com/watch?v=example1",
-        thumbnail: "https://i.ytimg.com/vi/Y_B6VADhY84/hqdefault.jpg",
-        channelName: "Tech Tutorials"
-      },
-      {
-        title: `Learn ${query} in 30 Minutes`,
-        url: "https://www.youtube.com/watch?v=example2",
-        thumbnail: "https://i.ytimg.com/vi/Unzc731iCUY/hqdefault.jpg",
-        channelName: "Quick Learner"
-      },
-      {
-        title: `${query} for Beginners - Step by Step`,
-        url: "https://www.youtube.com/watch?v=example3",
-        thumbnail: "https://i.ytimg.com/vi/IlU-zDU6aQ0/hqdefault.jpg",
-        channelName: "Coding Masters"
-      }
-    ];
-    return mockVideos;
-  };
-
-  // Helper function to extract video ID from YouTube URL
-  const extractVideoId = (url) => {
-    const regExp = /^.*(youtu.be\/|v\/|e\/|u\/\w+\/|embed\/|v=)([^#\&\?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : "";
+  const handleKeywordsChange = (e) => {
+    setYoutubeState(prev => ({
+      ...prev,
+      keywords: e.target.value
+    }));
   };
 
   return (
     <div className="youtube-container">
-      <h2>YouTube Video Recommender</h2>
+      <div className="youtube-header">
+        <h2>YouTube Video Recommender</h2>
+        <button onClick={resetYoutube} className="reset-button">
+          <span className="tool-icon">🔄</span>
+          Reset
+        </button>
+      </div>
 
-      {error && <div className="youtube-error">{error}</div>}
+      {youtubeState.error && (
+        <div className="youtube-error">{youtubeState.error}</div>
+      )}
 
       <form onSubmit={handleSubmit} className="youtube-search-form">
         <div className="search-input-container">
           <input
             type="text"
-            value={keywords}
-            onChange={(e) => setKeywords(e.target.value)}
+            value={youtubeState.keywords || ''}
+            onChange={handleKeywordsChange}
             placeholder="Enter keywords (e.g., 'JavaScript tutorials', 'machine learning basics')"
             className="youtube-search-input"
           />
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={youtubeState.isProcessing}
             className="youtube-search-button"
           >
-            {isLoading ? 'Searching...' : 'Search Videos'}
+            {youtubeState.isProcessing ? (
+              <>
+                <span className="spinner"></span>
+                Searching...
+              </>
+            ) : (
+              <>
+                <span className="tool-icon">🔍</span>
+                Search Videos
+              </>
+            )}
           </button>
         </div>
       </form>
 
-      {results.length > 0 && (
+      {youtubeState.results?.length > 0 && (
         <div className="youtube-results">
-          <h3>Top Videos for "{keywords || 'Your Search'}"</h3>
+          <h3>Top Videos for "{youtubeState.keywords || 'Your Search'}"</h3>
           <div className="youtube-results-list">
-            {results.map((video, index) => (
+            {youtubeState.results.map((video, index) => (
               <div key={index} className="youtube-result-item">
                 <div className="youtube-thumbnail">
                   <a href={video.url} target="_blank" rel="noopener noreferrer">

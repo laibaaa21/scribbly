@@ -2,6 +2,7 @@ import React from 'react';
 import './index.css';
 import './components/Dashboard.css';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AIToolsProvider } from './contexts/AIToolsContext';
 import Dashboard from './components/Dashboard';
 import AuthPage from './components/AuthPage';
 
@@ -19,7 +20,9 @@ function App() {
   return (
     <div className="App">
       <AuthProvider>
-        <AppContent />
+        <AIToolsProvider>
+          <AppContent />
+        </AIToolsProvider>
       </AuthProvider>
     </div>
   );

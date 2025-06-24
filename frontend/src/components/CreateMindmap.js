@@ -1,30 +1,16 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useAITools } from '../contexts/AIToolsContext';
 import { apiRequest, createMindmap } from '../utils/api';
+import './CreateMindmap.css';
 
-const CreateMindmap = ({ onSuccess }) => {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [mainText, setMainText] = useState('');
-  const [keywords, setKeywords] = useState('');
-  const [tags, setTags] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [generationMethod, setGenerationMethod] = useState('manual'); // 'manual' or 'auto'
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generationError, setGenerationError] = useState('');
-  
+const CreateMindmap = ({ onClose }) => {
   const { token } = useAuth();
-
-  const saveMindmap = async (mindmapData) => {
-    try {
-      await createMindmap(mindmapData, token);
-      onSuccess();
-    } catch (err) {
-      console.error('Error saving mindmap:', err);
-      setGenerationError(`Failed to save mindmap: ${err.message}`);
-    }
-  };
+  const {
+    mindmapState,
+    setMindmapState,
+    resetMindmap
+  } = useAITools();
 
   // Generate color based on keyword/text 
   const generateColor = (text) => {
@@ -177,25 +163,35 @@ const CreateMindmap = ({ onSuccess }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!title) {
-      setError('Title is required');
+    if (!mindmapState.title) {
+      setMindmapState(prev => ({
+        ...prev,
+        error: 'Title is required'
+      }));
       return;
     }
     
     try {
-      setLoading(true);
-      setError('');
+      setMindmapState(prev => ({
+        ...prev,
+        isProcessing: true,
+        error: ''
+      }));
       
       // Generate a more complex mindmap structure from inputs
-      const rootNode = generateMindmapStructure(title, mainText, keywords);
+      const rootNode = generateMindmapStructure(
+        mindmapState.title,
+        mindmapState.mainText,
+        mindmapState.keywords
+      );
       
-      const tagArray = tags.split(',')
+      const tagArray = mindmapState.tags.split(',')
         .map(tag => tag.trim())
         .filter(tag => tag !== '');
       
       const mindmapData = {
-        title,
-        description,
+        title: mindmapState.title,
+        description: mindmapState.description,
         rootNode,
         tags: tagArray,
         isPublic: false
@@ -204,40 +200,47 @@ const CreateMindmap = ({ onSuccess }) => {
       const newMindmap = await createMindmap(mindmapData, token);
       
       // Reset form
-      setTitle('');
-      setDescription('');
-      setMainText('');
-      setKeywords('');
-      setTags('');
+      resetMindmap();
       
-      if (onSuccess) {
-        onSuccess(newMindmap._id);
+      if (onClose) {
+        onClose(newMindmap._id);
       }
     } catch (error) {
-      setError(error.message || 'Failed to create mindmap');
-    } finally {
-      setLoading(false);
+      setMindmapState(prev => ({
+        ...prev,
+        error: error.message || 'Failed to create mindmap',
+        isProcessing: false
+      }));
     }
   };
 
   // Add this function to call the backend API for auto-generation
   const generateMindmapFromText = async () => {
-    if (!mainText.trim()) {
-      setGenerationError('Please enter text content to generate the mindmap from.');
+    if (!mindmapState.mainText?.trim()) {
+      setMindmapState(prev => ({
+        ...prev,
+        generationError: 'Please enter text content to generate the mindmap from.'
+      }));
       return;
     }
 
-    if (mainText.trim().length < 100) {
-      setGenerationError('Text is too short. Please provide at least a few sentences for better results.');
+    if (mindmapState.mainText.trim().length < 100) {
+      setMindmapState(prev => ({
+        ...prev,
+        generationError: 'Text is too short. Please provide at least a few sentences for better results.'
+      }));
       return;
     }
 
-    setIsGenerating(true);
-    setGenerationError('');
+    setMindmapState(prev => ({
+      ...prev,
+      isGenerating: true,
+      generationError: ''
+    }));
 
     try {
       const data = await apiRequest('/Mindmap-gen', 'POST', {
-        text: mainText,
+        text: mindmapState.mainText,
         max_depth: 3,
         min_keywords: 5,
         max_keywords: 8
@@ -245,35 +248,56 @@ const CreateMindmap = ({ onSuccess }) => {
 
       if (data.status === 'success' && data.mindmap) {
         // Update title if it's empty
-        if (!title.trim()) {
-          setTitle('Generated Mindmap');
-        }
+        const title = mindmapState.title.trim() || 'Generated Mindmap';
+        const description = mindmapState.description.trim() || 'Mindmap automatically generated from text content';
+        const tags = mindmapState.tags.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
 
         // Create a proper mindmap structure and save it
         const mindmapToSave = {
-          title: title.trim() || 'Generated Mindmap',
-          description: description.trim() || 'Mindmap automatically generated from text content',
+          title,
+          description,
           rootNode: data.mindmap,
-          tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag !== '')
+          tags
         };
 
-        saveMindmap(mindmapToSave);
+        await createMindmap(mindmapToSave, token);
+        resetMindmap();
+        if (onClose) {
+          onClose();
+        }
       } else {
         throw new Error('Failed to generate mindmap structure');
       }
     } catch (err) {
       console.error('Error generating mindmap:', err);
-      setGenerationError(`Failed to generate mindmap: ${err.message}`);
-    } finally {
-      setIsGenerating(false);
+      setMindmapState(prev => ({
+        ...prev,
+        generationError: `Failed to generate mindmap: ${err.message}`,
+        isGenerating: false
+      }));
     }
+  };
+
+  const handleInputChange = (field) => (e) => {
+    setMindmapState(prev => ({
+      ...prev,
+      [field]: e.target.value
+    }));
   };
 
   return (
     <div className="create-mindmap-container">
-      <h2>Create New Mindmap</h2>
+      <div className="mindmap-header">
+        <h2>Create New Mindmap</h2>
+        <button onClick={resetMindmap} className="reset-button">
+          <span className="tool-icon">🔄</span>
+          Reset
+        </button>
+      </div>
       
-      {error && <div className="error-message">{error}</div>}
+      {mindmapState.error && (
+        <div className="error-message">{mindmapState.error}</div>
+      )}
       
       <div className="generation-method-selector">
         <div className="method-label">Generation Method:</div>
@@ -283,8 +307,11 @@ const CreateMindmap = ({ onSuccess }) => {
               type="radio"
               name="generationMethod"
               value="manual"
-              checked={generationMethod === 'manual'}
-              onChange={() => setGenerationMethod('manual')}
+              checked={mindmapState.generationMethod === 'manual'}
+              onChange={() => setMindmapState(prev => ({
+                ...prev,
+                generationMethod: 'manual'
+              }))}
             />
             <span>Manual</span>
             <small>(provide keywords)</small>
@@ -295,8 +322,11 @@ const CreateMindmap = ({ onSuccess }) => {
               type="radio"
               name="generationMethod"
               value="auto"
-              checked={generationMethod === 'auto'}
-              onChange={() => setGenerationMethod('auto')}
+              checked={mindmapState.generationMethod === 'auto'}
+              onChange={() => setMindmapState(prev => ({
+                ...prev,
+                generationMethod: 'auto'
+              }))}
             />
             <span>Automatic</span>
             <small>(generate from text)</small>
@@ -304,7 +334,9 @@ const CreateMindmap = ({ onSuccess }) => {
         </div>
       </div>
 
-      {generationError && <div className="error-message">{generationError}</div>}
+      {mindmapState.generationError && (
+        <div className="error-message">{mindmapState.generationError}</div>
+      )}
       
       <form onSubmit={handleSubmit}>
         <div className="form-group">
@@ -312,8 +344,8 @@ const CreateMindmap = ({ onSuccess }) => {
           <input
             type="text"
             id="title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            value={mindmapState.title || ''}
+            onChange={handleInputChange('title')}
             placeholder="Enter mindmap title"
             required
           />
@@ -324,8 +356,8 @@ const CreateMindmap = ({ onSuccess }) => {
           <input
             type="text"
             id="description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            value={mindmapState.description || ''}
+            onChange={handleInputChange('description')}
             placeholder="Brief description of your mindmap"
           />
         </div>
@@ -334,21 +366,21 @@ const CreateMindmap = ({ onSuccess }) => {
           <label htmlFor="mainText">Main Text Content</label>
           <textarea
             id="mainText"
-            value={mainText}
-            onChange={(e) => setMainText(e.target.value)}
+            value={mindmapState.mainText || ''}
+            onChange={handleInputChange('mainText')}
             placeholder="Paste the main text you want to visualize in the mindmap"
             rows={5}
           />
         </div>
         
-        {generationMethod === 'manual' && (
+        {mindmapState.generationMethod === 'manual' && (
           <div className="form-group">
             <label htmlFor="keywords">Keywords (comma-separated)</label>
             <input
               type="text"
               id="keywords"
-              value={keywords}
-              onChange={(e) => setKeywords(e.target.value)}
+              value={mindmapState.keywords || ''}
+              onChange={handleInputChange('keywords')}
               placeholder="e.g., machine learning, algorithms, data science"
             />
           </div>
@@ -359,159 +391,53 @@ const CreateMindmap = ({ onSuccess }) => {
           <input
             type="text"
             id="tags"
-            value={tags}
-            onChange={(e) => setTags(e.target.value)}
+            value={mindmapState.tags || ''}
+            onChange={handleInputChange('tags')}
             placeholder="e.g., study, work, important"
           />
         </div>
         
         <div className="form-actions">
-          {generationMethod === 'manual' ? (
+          {mindmapState.generationMethod === 'manual' ? (
             <button 
-              onClick={handleSubmit} 
+              type="submit"
               className="primary-button"
-              disabled={loading}
+              disabled={mindmapState.isProcessing}
             >
-              {loading ? 'Creating...' : 'Create Mindmap'}
+              {mindmapState.isProcessing ? (
+                <>
+                  <span className="spinner"></span>
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <span className="tool-icon">📝</span>
+                  Create Mindmap
+                </>
+              )}
             </button>
           ) : (
             <button 
+              type="button"
               onClick={generateMindmapFromText} 
               className="primary-button auto-generate"
-              disabled={isGenerating || !mainText.trim()}
+              disabled={mindmapState.isGenerating || !mindmapState.mainText?.trim()}
             >
-              {isGenerating ? 'Generating...' : 'Generate Mindmap from Text'}
+              {mindmapState.isGenerating ? (
+                <>
+                  <span className="spinner"></span>
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <span className="tool-icon">🤖</span>
+                  Generate Mindmap from Text
+                </>
+              )}
             </button>
           )}
         </div>
       </form>
-      
-      <style jsx>{`
-        .create-mindmap-container {
-          background-color: white;
-          padding: 20px;
-          border-radius: 8px;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        
-        h2 {
-          margin-top: 0;
-          color: #333;
-          border-bottom: 1px solid #eee;
-          padding-bottom: 10px;
-          margin-bottom: 20px;
-        }
-        
-        .form-group {
-          margin-bottom: 15px;
-        }
-        
-        label {
-          display: block;
-          margin-bottom: 5px;
-          font-weight: 500;
-          color: #555;
-        }
-        
-        input, textarea {
-          width: 100%;
-          padding: 10px;
-          border: 1px solid #ddd;
-          border-radius: 4px;
-          font-size: 16px;
-        }
-        
-        textarea {
-          resize: vertical;
-          min-height: 100px;
-        }
-        
-        input:focus, textarea:focus {
-          outline: none;
-          border-color: #61dafb;
-          box-shadow: 0 0 0 2px rgba(97, 218, 251, 0.2);
-        }
-        
-        .error-message {
-          background-color: #ffebee;
-          color: #c62828;
-          padding: 10px 15px;
-          border-radius: 4px;
-          margin-bottom: 15px;
-          font-size: 14px;
-        }
-        
-        .create-button {
-          background-color: #61dafb;
-          color: white;
-          padding: 10px 15px;
-          border: none;
-          border-radius: 4px;
-          font-size: 16px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: background-color 0.3s;
-        }
-        
-        .create-button:hover:not(:disabled) {
-          background-color: #21a1c7;
-        }
-        
-        .create-button:disabled {
-          background-color: #ccc;
-          cursor: not-allowed;
-        }
-
-        .generation-method-selector {
-          margin-bottom: 20px;
-          background-color: #f8f9fa;
-          padding: 15px;
-          border-radius: 8px;
-        }
-
-        .method-label {
-          font-weight: 600;
-          margin-bottom: 10px;
-          color: #444;
-        }
-
-        .method-options {
-          display: flex;
-          gap: 20px;
-        }
-
-        .method-option {
-          display: flex;
-          align-items: center;
-          gap: 5px;
-          cursor: pointer;
-        }
-
-        .method-option input {
-          margin: 0;
-        }
-
-        .method-option span {
-          font-weight: 500;
-        }
-
-        .method-option small {
-          color: #777;
-          margin-left: 4px;
-        }
-
-        .form-actions {
-          margin-top: 20px;
-        }
-
-        .auto-generate {
-          background-color: #4caf50;
-        }
-
-        .auto-generate:hover:not(:disabled) {
-          background-color: #45a049;
-        }
-      `}</style>
     </div>
   );
 };

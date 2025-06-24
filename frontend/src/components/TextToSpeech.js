@@ -1,16 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
+import { useAITools } from '../contexts/AIToolsContext';
 import './TextToSpeech.css';
 
 const TextToSpeech = ({ onClose }) => {
-  const [text, setText] = useState('');
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [rate, setRate] = useState(1);
-  const [pitch, setPitch] = useState(1);
-  const [voice, setVoice] = useState('');
-  const [voices, setVoices] = useState([]);
-  const [error, setError] = useState('');
-  const [progress, setProgress] = useState(0);
+  const {
+    ttsState,
+    setTtsState,
+    resetTts
+  } = useAITools();
 
   // For tracking chunks
   const textChunksRef = useRef([]);
@@ -21,7 +18,7 @@ const TextToSpeech = ({ onClose }) => {
   // Initialize and get available voices
   useEffect(() => {
     if (!window.speechSynthesis) {
-      setError('Your browser does not support speech synthesis.');
+      setTtsState(prev => ({ ...prev, error: 'Your browser does not support speech synthesis.' }));
       return;
     }
 
@@ -32,16 +29,17 @@ const TextToSpeech = ({ onClose }) => {
         const filteredVoices = availableVoices.filter(v =>
           v.lang && !v.name.includes("Zira")
         );
-        setVoices(filteredVoices);
 
         // Set default voice
         const defaultVoice = filteredVoices.find(v =>
           v.localService && (v.lang.startsWith('en-') || v.lang === 'en')
         ) || filteredVoices[0];
 
-        if (defaultVoice) {
-          setVoice(defaultVoice.name);
-        }
+        setTtsState(prev => ({
+          ...prev,
+          voices: filteredVoices,
+          voice: defaultVoice ? defaultVoice.name : ''
+        }));
       }
     };
 
@@ -50,7 +48,7 @@ const TextToSpeech = ({ onClose }) => {
 
     // Reset workaround for Chrome
     const intervalId = setInterval(() => {
-      if (isSpeaking && !isPaused) {
+      if (ttsState.isSpeaking && !ttsState.isPaused) {
         window.speechSynthesis.pause();
         window.speechSynthesis.resume();
       }
@@ -63,23 +61,23 @@ const TextToSpeech = ({ onClose }) => {
       }
       clearInterval(intervalId);
     };
-  }, [isSpeaking, isPaused]);
+  }, [ttsState.isSpeaking, ttsState.isPaused]);
 
   const handleSpeak = () => {
-    if (!text.trim()) {
-      setError('Please enter some text to speak.');
+    if (!ttsState.inputText.trim()) {
+      setTtsState(prev => ({ ...prev, error: 'Please enter some text to speak.' }));
       return;
     }
 
     if (!window.speechSynthesis) {
-      setError('Your browser does not support speech synthesis.');
+      setTtsState(prev => ({ ...prev, error: 'Your browser does not support speech synthesis.' }));
       return;
     }
 
     try {
       // Stop any ongoing speech and reset state
       handleStop();
-      setError('');
+      setTtsState(prev => ({ ...prev, error: '' }));
 
       // Add a small delay before starting new speech
       setTimeout(() => {
@@ -88,9 +86,9 @@ const TextToSpeech = ({ onClose }) => {
         textChunksRef.current = [];
         currentChunkRef.current = 0;
 
-        if (text.length > maxChunkLength) {
+        if (ttsState.inputText.length > maxChunkLength) {
           // Break text at sentence boundaries
-          const sentences = text.match(/[^.!?]+[.!?]+/g) || [];
+          const sentences = ttsState.inputText.match(/[^.!?]+[.!?]+/g) || [];
           let currentChunk = "";
 
           sentences.forEach(sentence => {
@@ -104,7 +102,7 @@ const TextToSpeech = ({ onClose }) => {
 
           if (currentChunk) textChunksRef.current.push(currentChunk.trim());
         } else {
-          textChunksRef.current.push(text);
+          textChunksRef.current.push(ttsState.inputText);
         }
 
         // Start with the first chunk
@@ -112,7 +110,7 @@ const TextToSpeech = ({ onClose }) => {
       }, 100); // Small delay to ensure previous speech is fully cancelled
     } catch (err) {
       console.error('Speech synthesis error:', err);
-      setError('Failed to start speech. Please try again.');
+      setTtsState(prev => ({ ...prev, error: 'Failed to start speech. Please try again.' }));
     }
   };
 
@@ -122,12 +120,12 @@ const TextToSpeech = ({ onClose }) => {
 
     try {
       const utterance = new SpeechSynthesisUtterance(currentChunk);
-      utterance.rate = rate;
-      utterance.pitch = pitch;
+      utterance.rate = ttsState.rate || 1;
+      utterance.pitch = ttsState.pitch || 1;
 
       // Set selected voice
-      if (voice) {
-        const selectedVoice = voices.find(v => v.name === voice);
+      if (ttsState.voice && ttsState.voices) {
+        const selectedVoice = ttsState.voices.find(v => v.name === ttsState.voice);
         if (selectedVoice) {
           utterance.voice = selectedVoice;
         }
@@ -135,17 +133,20 @@ const TextToSpeech = ({ onClose }) => {
 
       // Handle events
       utterance.onstart = () => {
-        setIsSpeaking(true);
-        setProgress(0);
-        setError(''); // Clear any previous errors
+        setTtsState(prev => ({
+          ...prev,
+          isSpeaking: true,
+          progress: 0,
+          error: ''
+        }));
       };
 
       utterance.onpause = () => {
-        setIsPaused(true);
+        setTtsState(prev => ({ ...prev, isPaused: true }));
       };
 
       utterance.onresume = () => {
-        setIsPaused(false);
+        setTtsState(prev => ({ ...prev, isPaused: false }));
       };
 
       utterance.onend = () => {
@@ -155,9 +156,12 @@ const TextToSpeech = ({ onClose }) => {
           // Add small delay between chunks
           setTimeout(() => speakCurrentChunk(), 50);
         } else {
-          setIsSpeaking(false);
-          setIsPaused(false);
-          setProgress(100);
+          setTtsState(prev => ({
+            ...prev,
+            isSpeaking: false,
+            isPaused: false,
+            progress: 100
+          }));
           currentChunkRef.current = 0;
         }
       };
@@ -174,9 +178,12 @@ const TextToSpeech = ({ onClose }) => {
             }
           }, 100);
         } else {
-          setError('Error occurred while speaking. Please try again.');
-          setIsSpeaking(false);
-          setIsPaused(false);
+          setTtsState(prev => ({
+            ...prev,
+            error: 'Error occurred while speaking. Please try again.',
+            isSpeaking: false,
+            isPaused: false
+          }));
           currentChunkRef.current = 0;
         }
       };
@@ -187,7 +194,10 @@ const TextToSpeech = ({ onClose }) => {
           const totalChunks = textChunksRef.current.length;
           const chunkProgress = (currentChunkRef.current / totalChunks) * 100;
           const wordProgress = (event.charIndex / currentChunk.length) * (100 / totalChunks);
-          setProgress(Math.min(Math.round(chunkProgress + wordProgress), 100));
+          setTtsState(prev => ({
+            ...prev,
+            progress: Math.min(Math.round(chunkProgress + wordProgress), 100)
+          }));
         }
       };
 
@@ -196,9 +206,12 @@ const TextToSpeech = ({ onClose }) => {
       window.speechSynthesis.speak(utterance);
     } catch (err) {
       console.error('Error in speakCurrentChunk:', err);
-      setError('Failed to process speech. Please try again.');
-      setIsSpeaking(false);
-      setIsPaused(false);
+      setTtsState(prev => ({
+        ...prev,
+        error: 'Failed to process speech. Please try again.',
+        isSpeaking: false,
+        isPaused: false
+      }));
     }
   };
 
@@ -206,14 +219,17 @@ const TextToSpeech = ({ onClose }) => {
     if (!window.speechSynthesis) return;
 
     try {
-      if (isPaused) {
+      if (ttsState.isPaused) {
         window.speechSynthesis.resume();
       } else {
         window.speechSynthesis.pause();
       }
     } catch (err) {
       console.error('Error in handlePause:', err);
-      setError('Failed to pause/resume speech. Please try again.');
+      setTtsState(prev => ({
+        ...prev,
+        error: 'Failed to pause/resume speech. Please try again.'
+      }));
     }
   };
 
@@ -222,115 +238,135 @@ const TextToSpeech = ({ onClose }) => {
 
     try {
       window.speechSynthesis.cancel();
-      setIsSpeaking(false);
-      setIsPaused(false);
-      setProgress(0);
-      setError('');
+      setTtsState(prev => ({
+        ...prev,
+        isSpeaking: false,
+        isPaused: false,
+        progress: 0,
+        error: ''
+      }));
       currentUtteranceRef.current = null;
       currentChunkRef.current = 0;
     } catch (err) {
       console.error('Error in handleStop:', err);
-      setError('Failed to stop speech. Please refresh the page.');
+      setTtsState(prev => ({
+        ...prev,
+        error: 'Failed to stop speech. Please refresh the page.'
+      }));
     }
+  };
+
+  const handleInputChange = (e) => {
+    setTtsState(prev => ({ ...prev, inputText: e.target.value }));
+  };
+
+  const handleRateChange = (e) => {
+    setTtsState(prev => ({ ...prev, rate: parseFloat(e.target.value) }));
+  };
+
+  const handlePitchChange = (e) => {
+    setTtsState(prev => ({ ...prev, pitch: parseFloat(e.target.value) }));
+  };
+
+  const handleVoiceChange = (e) => {
+    setTtsState(prev => ({ ...prev, voice: e.target.value }));
   };
 
   return (
     <div className="tts-container">
       <div className="tts-content">
         <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
+          value={ttsState.inputText}
+          onChange={handleInputChange}
           placeholder="Enter text to convert to speech..."
           className="tts-textarea"
           rows={6}
         />
 
-        {error && <div className="error-message">{error}</div>}
+        {ttsState.error && <div className="error-message">{ttsState.error}</div>}
 
         <div className="tts-controls">
-          <div className="tts-control-item">
-            <label htmlFor="voice-select">Voice:</label>
-            <select
-              id="voice-select"
-              value={voice}
-              onChange={(e) => setVoice(e.target.value)}
-              className="tts-select"
-            >
-              {voices.map((v) => (
-                <option key={v.name} value={v.name}>
-                  {v.name} ({v.lang})
-                </option>
-              ))}
-            </select>
+          <div className="voice-controls">
+            <label>
+              Voice:
+              <select
+                value={ttsState.voice}
+                onChange={handleVoiceChange}
+                className="voice-select"
+              >
+                {ttsState.voices?.map((voice) => (
+                  <option key={voice.name} value={voice.name}>
+                    {voice.name} ({voice.lang})
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
-          <div className="tts-control-item">
-            <label htmlFor="rate-range">Speed: {rate.toFixed(1)}x</label>
-            <input
-              id="rate-range"
-              type="range"
-              min="0.5"
-              max="2"
-              step="0.1"
-              value={rate}
-              onChange={(e) => setRate(parseFloat(e.target.value))}
-              className="tts-range"
-            />
+          <div className="rate-pitch-controls">
+            <label>
+              Rate:
+              <input
+                type="range"
+                min="0.5"
+                max="2"
+                step="0.1"
+                value={ttsState.rate || 1}
+                onChange={handleRateChange}
+                className="slider"
+              />
+              <span>{ttsState.rate || 1}x</span>
+            </label>
+
+            <label>
+              Pitch:
+              <input
+                type="range"
+                min="0.5"
+                max="2"
+                step="0.1"
+                value={ttsState.pitch || 1}
+                onChange={handlePitchChange}
+                className="slider"
+              />
+              <span>{ttsState.pitch || 1}</span>
+            </label>
           </div>
 
-          <div className="tts-control-item">
-            <label htmlFor="pitch-range">Pitch: {pitch.toFixed(1)}</label>
-            <input
-              id="pitch-range"
-              type="range"
-              min="0.5"
-              max="2"
-              step="0.1"
-              value={pitch}
-              onChange={(e) => setPitch(parseFloat(e.target.value))}
-              className="tts-range"
-            />
+          <div className="playback-controls">
+            {!ttsState.isSpeaking ? (
+              <button onClick={handleSpeak} className="speak-button">
+                <span className="tool-icon">🔊</span>
+                Speak
+              </button>
+            ) : (
+              <>
+                <button onClick={handlePause} className="pause-button">
+                  <span className="tool-icon">
+                    {ttsState.isPaused ? '▶️' : '⏸️'}
+                  </span>
+                  {ttsState.isPaused ? 'Resume' : 'Pause'}
+                </button>
+                <button onClick={handleStop} className="stop-button">
+                  <span className="tool-icon">⏹️</span>
+                  Stop
+                </button>
+              </>
+            )}
+            <button onClick={resetTts} className="reset-button">
+              <span className="tool-icon">🔄</span>
+              Reset
+            </button>
           </div>
         </div>
 
-        {isSpeaking && (
-          <div className="tts-progress">
-            <div className="tts-progress-bar">
-              <div
-                className="tts-progress-fill"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <span>{progress}%</span>
+        {ttsState.isSpeaking && (
+          <div className="progress-bar">
+            <div
+              className="progress-fill"
+              style={{ width: `${ttsState.progress}%` }}
+            />
           </div>
-        )}
-      </div>
-
-      <div className="tts-buttons">
-        <button
-          onClick={handleSpeak}
-          disabled={!text.trim() || !voice}
-          className="tts-button primary"
-        >
-          {isSpeaking && !isPaused ? 'Speaking...' : 'Speak'}
-        </button>
-
-        {isSpeaking && (
-          <>
-            <button
-              onClick={handlePause}
-              className="tts-button secondary"
-            >
-              {isPaused ? 'Resume' : 'Pause'}
-            </button>
-
-            <button
-              onClick={handleStop}
-              className="tts-button danger"
-            >
-              Stop
-            </button>
-          </>
         )}
       </div>
     </div>

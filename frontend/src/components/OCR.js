@@ -1,31 +1,33 @@
-import React, { useState, useRef } from 'react';
+import React, { useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useAITools } from '../contexts/AIToolsContext';
 import './OCR.css';
 
 const OCR = ({ onClose }) => {
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
-  const [extractedText, setExtractedText] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [language, setLanguage] = useState('eng');
-  const [confidence, setConfidence] = useState(0);
-  const [copyStatus, setCopyStatus] = useState('');
+  const { token } = useAuth();
+  const {
+    ocrState,
+    setOcrState,
+    resetOcr
+  } = useAITools();
+
   const fileInputRef = useRef(null);
   const textAreaRef = useRef(null);
-  const { token } = useAuth();
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
       if (!file.type.startsWith('image/')) {
-        setError('Please select an image file');
+        setOcrState(prev => ({ ...prev, error: 'Please select an image file' }));
         return;
       }
-      setSelectedFile(file);
       const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
-      setError(null);
+      setOcrState(prev => ({
+        ...prev,
+        image: file,
+        imagePreview: url,
+        error: null
+      }));
 
       // Clean up the URL when component unmounts
       return () => URL.revokeObjectURL(url);
@@ -37,13 +39,16 @@ const OCR = ({ onClose }) => {
     const file = e.dataTransfer.files[0];
     if (file) {
       if (!file.type.startsWith('image/')) {
-        setError('Please select an image file');
+        setOcrState(prev => ({ ...prev, error: 'Please select an image file' }));
         return;
       }
-      setSelectedFile(file);
       const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
-      setError(null);
+      setOcrState(prev => ({
+        ...prev,
+        image: file,
+        imagePreview: url,
+        error: null
+      }));
     }
   };
 
@@ -52,19 +57,22 @@ const OCR = ({ onClose }) => {
   };
 
   const handleScan = async () => {
-    if (!selectedFile) {
-      setError('Please select an image to scan');
+    if (!ocrState.image) {
+      setOcrState(prev => ({ ...prev, error: 'Please select an image to scan' }));
       return;
     }
 
     try {
-      setLoading(true);
-      setError(null);
-      setCopyStatus('');
+      setOcrState(prev => ({
+        ...prev,
+        isProcessing: true,
+        error: null,
+        copyStatus: ''
+      }));
 
       const formData = new FormData();
-      formData.append('file', selectedFile);
-      formData.append('language', language);
+      formData.append('file', ocrState.image);
+      formData.append('language', ocrState.language || 'eng');
 
       const response = await fetch('http://localhost:5000/api/ocr', {
         method: 'POST',
@@ -80,8 +88,12 @@ const OCR = ({ onClose }) => {
       }
 
       const data = await response.json();
-      setExtractedText(data.text);
-      setConfidence(data.confidence);
+      setOcrState(prev => ({
+        ...prev,
+        extractedText: data.text,
+        confidence: data.confidence,
+        isProcessing: false
+      }));
 
       // Focus the textarea after text is extracted
       setTimeout(() => {
@@ -90,28 +102,34 @@ const OCR = ({ onClose }) => {
         }
       }, 100);
     } catch (err) {
-      setError(err.message);
+      setOcrState(prev => ({
+        ...prev,
+        error: err.message,
+        isProcessing: false
+      }));
       console.error('OCR error:', err);
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleCopy = async () => {
-    if (!extractedText) return;
+    if (!ocrState.extractedText) return;
 
     try {
-      await navigator.clipboard.writeText(extractedText);
-      setCopyStatus('Copied!');
+      await navigator.clipboard.writeText(ocrState.extractedText);
+      setOcrState(prev => ({ ...prev, copyStatus: 'Copied!' }));
 
       // Reset copy status after 2 seconds
       setTimeout(() => {
-        setCopyStatus('');
+        setOcrState(prev => ({ ...prev, copyStatus: '' }));
       }, 2000);
     } catch (err) {
       console.error('Failed to copy text:', err);
-      setCopyStatus('Failed to copy');
+      setOcrState(prev => ({ ...prev, copyStatus: 'Failed to copy' }));
     }
+  };
+
+  const handleLanguageChange = (e) => {
+    setOcrState(prev => ({ ...prev, language: e.target.value }));
   };
 
   return (
@@ -124,8 +142,8 @@ const OCR = ({ onClose }) => {
           <label htmlFor="language">OCR Language:</label>
           <select
             id="language"
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
+            value={ocrState.language || 'eng'}
+            onChange={handleLanguageChange}
             className="language-select"
           >
             <option value="eng">English</option>
@@ -150,10 +168,10 @@ const OCR = ({ onClose }) => {
           accept="image/*"
           style={{ display: 'none' }}
         />
-        {previewUrl ? (
+        {ocrState.imagePreview ? (
           <div className="file-preview-container">
-            <img src={previewUrl} alt="Preview" className="file-preview-image" />
-            <p className="file-name">{selectedFile?.name}</p>
+            <img src={ocrState.imagePreview} alt="Preview" className="file-preview-image" />
+            <p className="file-name">{ocrState.image?.name}</p>
           </div>
         ) : (
           <>
@@ -163,15 +181,15 @@ const OCR = ({ onClose }) => {
         )}
       </div>
 
-      {error && <div className="error-message">{error}</div>}
+      {ocrState.error && <div className="error-message">{ocrState.error}</div>}
 
       <div className="ocr-actions">
         <button
           onClick={handleScan}
-          disabled={loading || !selectedFile}
+          disabled={ocrState.isProcessing || !ocrState.image}
           className="scan-button"
         >
-          {loading ? (
+          {ocrState.isProcessing ? (
             <>
               <span className="spinner"></span>
               Scanning...
@@ -184,27 +202,37 @@ const OCR = ({ onClose }) => {
           )}
         </button>
 
-        {extractedText && (
-          <button
-            onClick={handleCopy}
-            className={`copy-button ${copyStatus === 'Copied!' ? 'copied' : ''}`}
-          >
-            <span className="tool-icon">📋</span>
-            {copyStatus || 'Copy Text'}
-          </button>
+        {ocrState.extractedText && (
+          <>
+            <button
+              onClick={handleCopy}
+              className={`copy-button ${ocrState.copyStatus === 'Copied!' ? 'copied' : ''}`}
+            >
+              <span className="tool-icon">📋</span>
+              {ocrState.copyStatus || 'Copy Text'}
+            </button>
+
+            <button
+              onClick={resetOcr}
+              className="reset-button"
+            >
+              <span className="tool-icon">🔄</span>
+              Reset
+            </button>
+          </>
         )}
       </div>
 
-      {extractedText && (
+      {ocrState.extractedText && (
         <div className="ocr-result">
-          {confidence > 0 && (
+          {ocrState.confidence > 0 && (
             <div className="confidence-indicator">
-              Confidence: {confidence.toFixed(1)}%
+              Confidence: {ocrState.confidence.toFixed(1)}%
             </div>
           )}
           <textarea
             ref={textAreaRef}
-            value={extractedText}
+            value={ocrState.extractedText}
             readOnly
             placeholder="Extracted text will appear here..."
             className="extracted-text"

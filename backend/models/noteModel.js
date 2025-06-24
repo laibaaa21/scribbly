@@ -18,6 +18,10 @@ const noteSchema = new mongoose.Schema({
     type: String,
     default: 'unorganized'
   },
+  isPinned: {
+    type: Boolean,
+    default: false
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -32,10 +36,6 @@ const noteSchema = new mongoose.Schema({
     },
   ],
   isArchived: {
-    type: Boolean,
-    default: false,
-  },
-  isPinned: {
     type: Boolean,
     default: false,
   },
@@ -63,6 +63,11 @@ noteSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
   next();
 });
+
+// Create indexes for sorting
+noteSchema.index({ isPinned: -1, createdAt: -1 });
+noteSchema.index({ isPinned: -1, updatedAt: -1 });
+noteSchema.index({ isPinned: -1, title: 1 });
 
 // Add text index for content and title to enable text search
 noteSchema.index({ title: 'text', content: 'text', tags: 'text' });

@@ -28,6 +28,12 @@
   --item-active-bg: #ebf8ff;
   --tool-bg: #ffffff;
   --tool-hover-bg: #f7fafc;
+  --surface-alt: rgba(var(--primary-rgb), 0.1);
+  --error: #dc3545;
+  --error-bg: rgba(220, 53, 69, 0.1);
+  --primary-light: rgba(var(--primary-rgb), 0.2);
+  --text-muted: #9ca3af;
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
 /* Dark Theme */
@@ -293,29 +299,40 @@
 
 .note-title {
   width: 100%;
-  padding: 1rem;
+  padding: 0.8rem;
   font-size: 1.2rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--input-bg);
   color: var(--text);
+  background: var(--input-bg);
+  border: 1px solid var(--light-pink); /* Or var(--border) if you want a subtler style */
+  border-radius: 8px;
+  margin-bottom: 1rem;
   transition: all 0.2s ease;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+
 .note-content {
+  flex: 1;
   flex-grow: 1;
+  display: flex;
+  flex-direction: column; /* To support text area/content flow */
   width: 100%;
+  min-width: 0; /* Enables text truncation if needed */
+  min-height: 5px;
   padding: 1rem;
   font-size: 1rem;
   line-height: 1.6;
-  border: 1px solid var(--border);
+  border: 1px solid var(--light-pink); /* Or var(--border), depending on style */
   border-radius: 8px;
   background: var(--input-bg);
   color: var(--text);
-  resize: none;
+  resize: vertical;
   transition: all 0.2s ease;
-  min-height: 300px;
 }
+
 
 .note-title:focus,
 .note-content:focus {
@@ -709,13 +726,15 @@ textarea.input-field {
 }
 
 .notes-sidebar {
-  background: var(--surface);
+  width: 300px;
+  background: var(--surface); /* You can swap this with `white` if you prefer */
   border-radius: 12px;
-  border: 1px solid var(--border);
-  padding: 1.25rem;
+  border: 1px solid var(--border); /* Optional: remove if using only box-shadow */
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  box-shadow: 0 2px 12px rgba(255, 105, 180, 0.1);
 }
 
 .new-note-btn {
@@ -742,44 +761,39 @@ textarea.input-field {
   background: var(--surface);
   border-radius: 8px;
   overflow-y: auto;
+  padding: 0.5rem;
 }
 
 .note-item {
-  position: relative;
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--note-bg);
+  align-items: center;
+  padding: 0.25rem 0.5rem;
   cursor: pointer;
+  border-radius: 3px;
   transition: all 0.2s ease;
-  margin-bottom: 8px;
-}
-
-.note-item h3 {
-  margin: 0 0 4px 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--note-text);
-}
-
-.note-preview {
-  color: var(--note-text-secondary);
-  font-size: 13px;
-  line-height: 1.4;
-  margin: 4px 0;
-}
-
-.note-meta {
-  color: var(--note-text-secondary);
-  font-size: 12px;
+  margin: 0.125rem 0;
+  gap: 0.375rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+  min-height: 24px;
+  line-height: 1.2;
 }
 
 .note-item:hover {
-  background: var(--note-hover-bg);
+  background: var(--hover-bg);
   border-color: var(--accent-primary);
+  transform: translateY(-1px);
+}
+
+.note-item.dragging {
+  opacity: 0.5;
+  background: var(--hover-bg);
+}
+
+.note-item.pinned {
+  background: var(--surface-alt);
+  border-left: 2px solid var(--accent-primary);
 }
 
 .note-item.active {
@@ -787,13 +801,140 @@ textarea.input-field {
   border-color: var(--accent-primary);
 }
 
-.note-item.active h3 {
-  color: var(--note-active-text);
+.note-item .note-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  gap: 0.25rem;
 }
 
-.note-item.active .note-preview,
-.note-item.active .note-meta {
-  color: var(--note-active-text-secondary);
+.note-item .note-title-section {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.note-item .note-icon {
+  font-size: 0.875rem;
+  opacity: 0.7;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.note-item .note-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+  padding: 0;
+}
+
+/* Note Actions */
+.note-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.note-item:hover .note-actions {
+  opacity: 1;
+}
+
+/* Pin and Delete buttons */
+.pin-button,
+.delete-button {
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  opacity: 0.6;
+  line-height: 1;
+}
+
+.pin-button:hover,
+.delete-button:hover {
+  color: var(--text);
+  transform: scale(1.1);
+  opacity: 1;
+}
+
+.pin-button.pinned {
+  color: var(--accent-primary);
+  opacity: 1;
+}
+
+/* Delete confirmation */
+.delete-confirm {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.confirm-yes,
+.confirm-no {
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+
+.confirm-yes {
+  color: var(--error);
+}
+
+.confirm-yes:hover {
+  background: var(--error-bg);
+}
+
+.confirm-no:hover {
+  background: var(--hover-bg);
+}
+
+/* Sort select */
+.sort-select {
+  padding: 0.375rem 0.5rem;
+  font-size: 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex: 1;
+  min-width: 0;
+}
+
+.sort-select:hover {
+  border-color: var(--accent-primary);
+}
+
+.sort-select:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px var(--primary-light);
+}
+
+/* CSS Variables */
+:root {
+  --primary-rgb: 59, 130, 246;
 }
 
 /* Delete Button Styles */
@@ -1045,21 +1186,6 @@ textarea {
   font-family: inherit;
 }
 
-/* Notes Styling */
-.notes-container {
-  display: flex;
-  gap: 2rem;
-  padding: 1rem;
-}
-
-.notes-sidebar {
-  width: 300px;
-  background: white;
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 12px rgba(255, 105, 180, 0.1);
-}
-
 .new-note-btn {
   width: 100%;
   padding: 1rem;
@@ -1070,21 +1196,6 @@ textarea {
   cursor: pointer;
   transition: all 0.3s ease;
   margin-bottom: 1rem;
-}
-
-.note-item {
-  padding: 1rem;
-  background-color: white;
-  border-radius: 8px;
-  margin-bottom: 0.5rem;
-  cursor: pointer;
-  border: 1px solid var(--light-pink);
-  transition: all 0.3s ease;
-}
-
-.note-item:hover {
-  background-color: var(--bg-pink);
-  transform: translateY(-2px);
 }
 
 .note-item.active {
@@ -1098,24 +1209,6 @@ textarea {
   border-radius: 12px;
   padding: 1.5rem;
   box-shadow: 0 2px 12px rgba(255, 105, 180, 0.1);
-}
-
-.note-title {
-  width: 100%;
-  padding: 0.8rem;
-  font-size: 1.2rem;
-  border: 1px solid var(--light-pink);
-  border-radius: 8px;
-  margin-bottom: 1rem;
-}
-
-.note-content {
-  width: 100%;
-  min-height: 400px;
-  padding: 1rem;
-  border: 1px solid var(--light-pink);
-  border-radius: 8px;
-  resize: vertical;
 }
 
 /* Input groups */
@@ -1246,23 +1339,6 @@ textarea {
   background-color: #21a1c7;
 }
 
-/* Mindmap list styling */
-.mindmap-list {
-  margin-top: 20px;
-}
-
-.mindmap-list h2 {
-  font-size: 20px;
-  margin-bottom: 15px;
-  color: #333;
-}
-
-.mindmap-list ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
 .mindmap-item {
   background-color: #fff;
   border-radius: 8px;
@@ -1296,25 +1372,6 @@ textarea {
   align-items: center;
   font-size: 12px;
   color: #888;
-}
-
-.mindmap-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.tag {
-  background-color: #f0f7ff;
-  color: #3c8dbc;
-  padding: 3px 8px;
-  border-radius: 12px;
-  font-size: 12px;
-}
-
-.mindmap-actions {
-  display: flex;
-  gap: 10px;
 }
 
 .btn-view {
@@ -1471,12 +1528,6 @@ textarea {
   position: relative;
 }
 
-.note-actions {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-}
-
 .pin-note-btn {
   background: none;
   border: none;
@@ -1576,12 +1627,6 @@ textarea {
   background: var(--accent-primary);
   color: white;
   border-color: transparent;
-}
-
-/* Fix any remaining light backgrounds */
-.notes-list {
-  background: var(--surface);
-  border-radius: 8px;
 }
 
 .sidebar-content {
@@ -1755,18 +1800,6 @@ textarea {
   background: var(--surface);
 }
 
-/* Ensure tabs container is always visible */
-.tabs-container {
-  display: flex;
-  gap: 4px;
-  padding: 8px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  overflow-x: auto;
-  scrollbar-width: thin;
-  flex-shrink: 0;
-}
-
 /* Content area below tabs */
 .tab-content {
   flex: 1;
@@ -1839,93 +1872,189 @@ textarea {
   margin-top: 0.25rem;
 }
 
-/* Note item styles */
-.note-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem;
-  cursor: move;
-  border-radius: 6px;
-  transition: all 0.2s ease;
-  margin: 0.25rem 0;
-}
-
-.note-item:hover {
-  background: var(--hover-bg);
-}
-
-.note-item.dragging {
-  opacity: 0.5;
-  background: var(--hover-bg);
-}
-
 .note-icon {
   font-size: 1rem;
-  opacity: 0.7;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+/* Pin and Delete buttons */
+.pin-button,
+.delete-button {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  opacity: 0.6;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+}
+
+.pin-button:hover,
+.delete-button:hover {
+  opacity: 1;
+  transform: scale(1.1);
+  color: var(--primary);
+}
+
+.pin-button.pinned {
+  opacity: 1;
+  color: var(--accent-primary);
+}
+
+/* Delete confirmation */
+.delete-confirm {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.confirm-yes,
+.confirm-no {
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+
+.confirm-yes {
+  color: var(--error);
+}
+
+.confirm-yes:hover {
+  background: var(--error-bg);
+}
+
+.confirm-no:hover {
+  background: var(--hover-bg);
+}
+
+/* Sort select */
+.sort-select {
+  padding: 0.375rem 0.5rem;
+  font-size: 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex: 1;
+  min-width: 0;
+}
+
+.sort-select:hover {
+  border-color: var(--accent-primary);
+}
+
+.sort-select:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px var(--primary-light);
 }
 
 /* Sidebar header and actions */
 .sidebar-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem;
+  padding: 1rem 1rem 0.75rem;
   border-bottom: 1px solid var(--border);
+}
+
+.sidebar-header h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 0.75rem 0;
+  color: var(--text);
 }
 
 .sidebar-actions {
   display: flex;
+  align-items: center;
   gap: 0.5rem;
+  margin-top: 0.75rem;
 }
 
 .icon-button {
-  background: none;
-  border: none;
-  font-size: 1.2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background-color: var(--surface);
+  color: var(--text);
   cursor: pointer;
-  padding: 0.25rem;
-  border-radius: 4px;
   transition: all 0.2s ease;
+  font-size: 1rem;
 }
 
 .icon-button:hover {
-  background: var(--hover-bg);
+  background-color: var(--hover-bg);
+  border-color: var(--accent-primary);
 }
 
 /* New folder input */
 .new-folder-input {
-  padding: 0.75rem;
   display: flex;
+  align-items: center;
   gap: 0.5rem;
-  background: var(--surface);
+  padding: 0.75rem;
+  background-color: var(--surface);
   border-bottom: 1px solid var(--border);
 }
 
 .new-folder-input input {
   flex: 1;
-  padding: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
   border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--background);
-}
-
-.new-folder-input button {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  background: var(--primary);
-  color: white;
-  transition: all 0.2s ease;
-}
-
-.new-folder-input button:last-child {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  border-radius: 6px;
+  background-color: var(--input-bg);
   color: var(--text);
 }
 
+.new-folder-input input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
+.new-folder-input button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background-color: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.875rem;
+}
+
+.new-folder-input button:first-of-type {
+  background-color: var(--accent-primary);
+  color: white;
+  border-color: var(--accent-primary);
+}
+
 .new-folder-input button:hover {
-  opacity: 0.9;
+  background-color: var(--hover-bg);
+  border-color: var(--accent-primary);
+}
+
+.new-folder-input button:first-of-type:hover {
+  background-color: var(--accent-secondary);
+  border-color: var(--accent-secondary);
 }

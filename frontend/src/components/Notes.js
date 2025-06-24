@@ -10,7 +10,7 @@ import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 
 // Folder component
-const Folder = ({ folder, notes, onToggle, isOpen, onDrop }) => {
+const Folder = ({ folder, notes, onToggle, isOpen, onDrop, onPin, onDelete, onSelect }) => {
   const [{ isOver }, drop] = useDrop({
     accept: 'note',
     drop: (item) => onDrop(item.note, folder.id),
@@ -29,7 +29,13 @@ const Folder = ({ folder, notes, onToggle, isOpen, onDrop }) => {
       {isOpen && (
         <div className="folder-content">
           {notes.map(note => (
-            <DraggableNote key={note._id} note={note} />
+            <DraggableNote
+              key={note._id}
+              note={note}
+              onPin={onPin}
+              onDelete={onDelete}
+              onSelect={onSelect}
+            />
           ))}
         </div>
       )}
@@ -37,8 +43,8 @@ const Folder = ({ folder, notes, onToggle, isOpen, onDrop }) => {
   );
 };
 
-// Draggable Note component
-const DraggableNote = ({ note }) => {
+// DraggableNote component with improved layout
+const DraggableNote = ({ note, onPin, onDelete, onSelect }) => {
   const [{ isDragging }, drag] = useDrag({
     type: 'note',
     item: { type: 'note', note },
@@ -47,16 +53,88 @@ const DraggableNote = ({ note }) => {
     }),
   });
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const handlePin = (e) => {
+    e.stopPropagation();
+    onPin(note);
+  };
+
+  const handleDeleteClick = (e) => {
+    e.stopPropagation();
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = (e) => {
+    e.stopPropagation();
+    onDelete(note);
+    setShowDeleteConfirm(false);
+  };
+
+  const cancelDelete = (e) => {
+    e.stopPropagation();
+    setShowDeleteConfirm(false);
+  };
+
+  // Close delete confirmation when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showDeleteConfirm && !event.target.closest('.delete-confirm')) {
+        setShowDeleteConfirm(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showDeleteConfirm]);
+
   return (
     <div
       ref={drag}
-      className={`note-item ${isDragging ? 'dragging' : ''}`}
+      className={`note-item ${isDragging ? 'dragging' : ''} ${note.isPinned ? 'pinned' : ''}`}
       style={{ opacity: isDragging ? 0.5 : 1 }}
+      onClick={() => onSelect(note)}
     >
-      <span className="note-icon">📝</span>
-      <span className="note-title">{note.title || 'Untitled'}</span>
+      <div className="note-content">
+        <div className="note-title-section">
+          <span className="note-icon">📝</span>
+          <span className="note-title">{note.title || 'Untitled'}</span>
+        </div>
+        
+        <div className="note-actions">
+          <button
+            className={`pin-button ${note.isPinned ? 'pinned' : ''}`}
+            onClick={handlePin}
+            title={note.isPinned ? 'Unpin note' : 'Pin this note'}
+          >
+            📌
+          </button>
+          
+          {showDeleteConfirm ? (
+            <div className="delete-confirm">
+              <button onClick={confirmDelete} className="confirm-yes" title="Confirm delete">✓</button>
+              <button onClick={cancelDelete} className="confirm-no" title="Cancel">✕</button>
+            </div>
+          ) : (
+            <button
+              className="delete-button"
+              onClick={handleDeleteClick}
+              title="Delete note"
+            >
+              🗑️
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
+};
+
+// Sort types enum
+const SORT_TYPES = {
+  ALPHABETICAL: 'alphabetical',
+  RECENT_CREATED: 'recent_created',
+  RECENT_EDITED: 'recent_edited'
 };
 
 const Notes = ({ sidebarVisible, activeAITool, onAIToolSelect }) => {
@@ -68,7 +146,9 @@ const Notes = ({ sidebarVisible, activeAITool, onAIToolSelect }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortOption, setSortOption] = useState('lastEdited');
+  const [sortType, setSortType] = useState(
+    localStorage.getItem('notesSortType') || SORT_TYPES.RECENT_EDITED
+  );
   const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0, noteId: null });
   const [deleteConfirmation, setDeleteConfirmation] = useState({ show: false, noteId: null });
   const [editingTitleId, setEditingTitleId] = useState(null);
@@ -96,6 +176,32 @@ const Notes = ({ sidebarVisible, activeAITool, onAIToolSelect }) => {
       fetchNotes();
     }
   }, [token]);
+
+  // Save sort preference
+  useEffect(() => {
+    localStorage.setItem('notesSortType', sortType);
+  }, [sortType]);
+
+  // Sort notes function
+  const sortNotes = useCallback((notesToSort) => {
+    const pinnedNotes = notesToSort.filter(note => note.isPinned);
+    const unpinnedNotes = notesToSort.filter(note => !note.isPinned);
+
+    const applySorting = (notes) => {
+      switch (sortType) {
+        case SORT_TYPES.ALPHABETICAL:
+          return [...notes].sort((a, b) => a.title.localeCompare(b.title));
+        case SORT_TYPES.RECENT_CREATED:
+          return [...notes].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        case SORT_TYPES.RECENT_EDITED:
+          return [...notes].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+        default:
+          return notes;
+      }
+    };
+
+    return [...applySorting(pinnedNotes), ...applySorting(unpinnedNotes)];
+  }, [sortType]);
 
   const createNewNote = async () => {
     if (!token) {
@@ -242,23 +348,38 @@ const Notes = ({ sidebarVisible, activeAITool, onAIToolSelect }) => {
     }
   };
 
-  const togglePinNote = async (noteId) => {
-    const noteToUpdate = notes.find(n => n._id === noteId);
-    if (!noteToUpdate) return;
-
+  const handlePinNote = async (note) => {
     try {
-      setLoading(true);
-      const updatedNote = await updateNote(noteId, {
-        isPinned: !noteToUpdate.isPinned
+      const updatedNote = await updateNote(note._id, {
+        isPinned: !note.isPinned
       }, token);
 
-      setNotes(prevNotes => prevNotes.map(note =>
-        note._id === noteId ? { ...note, isPinned: !note.isPinned } : note
+      // Update notes list
+      setNotes(prevNotes => {
+        const newNotes = prevNotes.map(n =>
+          n._id === updatedNote._id ? updatedNote : n
+        );
+        // Re-sort to move pinned notes to top
+        return [...newNotes].sort((a, b) => {
+          if (a.isPinned === b.isPinned) {
+            return new Date(b.updatedAt) - new Date(a.updatedAt);
+          }
+          return b.isPinned ? -1 : 1;
+        });
+      });
+
+      // Update current note if it's the same
+      if (currentNote?._id === updatedNote._id) {
+        setCurrentNote(updatedNote);
+      }
+
+      // Update open tabs
+      setOpenTabs(prevTabs => prevTabs.map(tab =>
+        tab._id === updatedNote._id ? { ...tab, isPinned: updatedNote.isPinned } : tab
       ));
     } catch (error) {
-      setError('Failed to pin/unpin note');
-    } finally {
-      setLoading(false);
+      console.error('Error updating note pin status:', error);
+      setError('Failed to update note pin status');
     }
   };
 
@@ -294,27 +415,6 @@ const Notes = ({ sidebarVisible, activeAITool, onAIToolSelect }) => {
       closeContextMenu();
     }
   };
-
-  const sortNotes = (notesToSort) => {
-    const pinnedNotes = notesToSort.filter(note => note.isPinned);
-    const unpinnedNotes = notesToSort.filter(note => !note.isPinned);
-
-    const sortFunctions = {
-      lastEdited: (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt),
-      created: (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
-      alphabetical: (a, b) => a.title.localeCompare(b.title)
-    };
-
-    const sortFn = sortFunctions[sortOption] || sortFunctions.lastEdited;
-    return [...pinnedNotes.sort(sortFn), ...unpinnedNotes.sort(sortFn)];
-  };
-
-  const filteredNotes = sortNotes(
-    notes.filter(note =>
-      note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      note.content.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  );
 
   const handleAIToolClick = (tool) => {
     if (activeAITool === tool) {
@@ -535,26 +635,57 @@ const Notes = ({ sidebarVisible, activeAITool, onAIToolSelect }) => {
     return grouped;
   }, [notes, folders]);
 
-  // Render sidebar content
+  // Handle note deletion
+  const handleDeleteNote = async (note) => {
+    try {
+      await deleteNote(note._id, token);
+
+      // Remove from notes list
+      setNotes(prevNotes => prevNotes.filter(n => n._id !== note._id));
+
+      // Close tab if open
+      if (openTabs.some(tab => tab._id === note._id)) {
+        closeTab(note._id);
+      }
+
+      // Clear current note if it's the deleted one
+      if (currentNote?._id === note._id) {
+        setCurrentNote(null);
+      }
+    } catch (error) {
+      console.error('Error deleting note:', error);
+      setError('Failed to delete note');
+    }
+  };
+
+  // Render sidebar content with sorting controls
   const renderSidebarContent = () => (
     <div className="sidebar-content">
       <div className="sidebar-header">
         <h2>Notes</h2>
         <div className="sidebar-actions">
+          <select
+            className="sort-select"
+            value={sortType}
+            onChange={(e) => setSortType(e.target.value)}
+          >
+            <option value={SORT_TYPES.RECENT_EDITED}>Recent</option>
+            <option value={SORT_TYPES.ALPHABETICAL}>A-Z</option>
+            <option value={SORT_TYPES.RECENT_CREATED}>Created</option>
+          </select>
           <button
             className="icon-button"
             onClick={() => setShowNewFolderInput(true)}
             title="New Folder"
           >
-            📁+
+            📁
           </button>
           <button
             className="icon-button"
             onClick={createNewNote}
-            disabled={loading}
             title="New Note"
           >
-            📝+
+            📝
           </button>
         </div>
       </div>
@@ -565,28 +696,34 @@ const Notes = ({ sidebarVisible, activeAITool, onAIToolSelect }) => {
             type="text"
             value={newFolderName}
             onChange={(e) => setNewFolderName(e.target.value)}
-            placeholder="Folder name..."
+            placeholder="Folder name"
             autoFocus
-            onKeyPress={(e) => e.key === 'Enter' && createNewFolder()}
           />
-          <button onClick={createNewFolder}>Create</button>
+          <button onClick={createNewFolder}>✓</button>
           <button onClick={() => {
             setShowNewFolderInput(false);
             setNewFolderName('');
-          }}>Cancel</button>
+          }}>✕</button>
         </div>
       )}
 
       <DndProvider backend={HTML5Backend}>
-        <div className="folders-list">
+        <div className="notes-list">
           {folders.map(folder => (
             <Folder
               key={folder.id}
               folder={folder}
-              notes={notesByFolder().get(folder.id) || []}
-              isOpen={openFolders.includes(folder.id)}
+              notes={notes.filter(note => 
+                folder.isDefault ? 
+                  (folder.id === 'unorganized' ? !note.folderId : true) : 
+                  note.folderId === folder.id
+              )}
               onToggle={toggleFolder}
+              isOpen={openFolders.includes(folder.id)}
               onDrop={handleNoteDrop}
+              onPin={handlePinNote}
+              onDelete={handleDeleteNote}
+              onSelect={(note) => openNoteInTab(note)}
             />
           ))}
         </div>

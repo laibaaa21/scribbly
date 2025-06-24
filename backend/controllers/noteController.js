@@ -1,12 +1,15 @@
 const Note = require('../models/noteModel');
 const asyncHandler = require('express-async-handler');
 
-// @desc    Get all notes for a user
+// @desc    Get all notes
 // @route   GET /api/notes
 // @access  Private
 const getNotes = asyncHandler(async (req, res) => {
-  const notes = await Note.find({ user: req.user._id });
-  res.json(notes);
+  const notes = await Note.find({ user: req.user.id })
+    .sort({ isPinned: -1, updatedAt: -1 })
+    .exec();
+
+  res.status(200).json(notes);
 });
 
 // @desc    Get a single note
@@ -76,6 +79,7 @@ const updateNote = asyncHandler(async (req, res) => {
       title: req.body.title !== undefined ? req.body.title : note.title,
       content: req.body.content !== undefined ? req.body.content : note.content,
       folderId: req.body.folderId !== undefined ? req.body.folderId : note.folderId,
+      isPinned: req.body.isPinned !== undefined ? req.body.isPinned : note.isPinned,
       updatedAt: Date.now()
     },
     { new: true }
@@ -165,7 +169,9 @@ const getNotesByFolder = asyncHandler(async (req, res) => {
   const notes = await Note.find({
     user: req.user.id,
     folderId: req.params.folderId
-  }).sort({ updatedAt: -1 });
+  })
+  .sort({ isPinned: -1, updatedAt: -1 })
+  .exec();
 
   res.status(200).json(notes);
 });
